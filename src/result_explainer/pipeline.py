@@ -17,15 +17,15 @@ from result_explainer.explainers.template import TemplateExplainer
 from result_explainer.facts import FactTable, build_facts
 from result_explainer.paths import DEFAULT_DB
 from result_explainer.questions import Question, run_question
-from result_explainer.validator import CITATION, validate
+from result_explainer.validator import CITATION, Issue, validate
 
 MAX_ATTEMPTS = 2
 
 
 @dataclass(frozen=True)
 class Attempt:
-    text: str | None   # None when the explainer raised instead of answering
-    issues: list[str]  # validation messages, or the explainer error
+    text: str | None     # None when the explainer raised instead of answering
+    issues: list[Issue]  # validation issues, or the explainer error
 
 
 @dataclass(frozen=True)
@@ -68,10 +68,10 @@ def explain_facts(
             text = explainer.explain(facts, feedback)
         except ExplainerError as error:
             # Configuration and network problems don't fix themselves on a retry.
-            attempts.append(Attempt(None, [f"explainer_error: {error}"]))
+            attempts.append(Attempt(None, [Issue("explainer_error", str(error))]))
             break
         result = validate(text, facts)
-        attempts.append(Attempt(text, result.messages()))
+        attempts.append(Attempt(text, result.issues))
         if result.ok:
             return Explanation(facts, text, "grounded", explainer.name, attempts)
         feedback = result.messages()

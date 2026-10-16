@@ -4,6 +4,7 @@ from result_explainer.explainers.template import TemplateExplainer
 from result_explainer.facts import build_facts
 from result_explainer.pipeline import explain_facts, explain_question
 from result_explainer.questions import QueryResult, load_questions
+from result_explainer.validator import Issue
 
 QUESTIONS = load_questions()
 Q06 = QUESTIONS["q06"]
@@ -54,7 +55,7 @@ def test_explainer_errors_fall_back_without_retrying():
     explainer = ScriptedExplainer(ExplainerError("endpoint down"), GOOD)
     explanation = explain_facts(FACTS, explainer)
     assert explanation.status == "fallback"
-    assert explanation.attempts[0].issues == ["explainer_error: endpoint down"]
+    assert explanation.attempts[0].issues == [Issue("explainer_error", "endpoint down")]
     assert len(explainer.feedback) == 1
 
 
@@ -69,9 +70,8 @@ def test_empty_result_never_reaches_the_explainer(db_path):
 def test_faulty_explainer_is_always_caught(db_path):
     explanation = explain_question(QUESTIONS["q03"], FaultyExplainer(), db_path)
     assert explanation.status == "fallback"
-    issues = [issue for attempt in explanation.attempts for issue in attempt.issues]
-    assert any(issue.startswith("invented_number") for issue in issues)
-    assert any(issue.startswith("unsupported_calculation") for issue in issues)
+    kinds = {issue.kind for attempt in explanation.attempts for issue in attempt.issues}
+    assert {"invented_number", "unsupported_calculation"} <= kinds
 
 
 def test_template_can_be_chosen_directly(db_path):

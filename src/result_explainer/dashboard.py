@@ -111,7 +111,7 @@ def show_explanation(question_id: str, mode: str) -> None:
     st.markdown(f'<div class="explanation">{with_citation_chips(explanation)}</div>', unsafe_allow_html=True)
     attempts = len(explanation.attempts)
     st.caption(
-        f"Written by {explanation.explainer} · {attempts} model attempt(s) · {seconds:.1f}s. "
+        f"Written by {explanation.explainer} · {attempts} attempt(s) checked · {seconds:.1f}s. "
         "Hover a citation to see the value it points to."
     )
 

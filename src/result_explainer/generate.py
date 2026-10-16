@@ -59,3 +59,52 @@ def generate_customers(rng: random.Random) -> tuple[list[Customer], dict[int, in
         )
         activity[customer_id] = pick(rng, ACTIVITY)
     return customers, activity
+
+
+@dataclass(frozen=True)
+class Category:
+    price_range: tuple[int, int]  # whole dollars, inclusive; every price ends in .99
+    return_rate_pct: int          # chance that a delivered order line is returned
+    products: tuple[str, ...]
+
+
+CATEGORIES = {
+    "Electronics": Category((29, 499), 5, (
+        "Wireless Earbuds", "Bluetooth Speaker", "USB-C Hub", "Mechanical Keyboard",
+        "HD Webcam", "Portable Charger", "Smart Plug", "Noise-Cancelling Headphones",
+    )),
+    "Home": Category((14, 199), 4, (
+        "Ceramic Mug Set", "Linen Throw", "Cast Iron Skillet", "Desk Lamp",
+        "Bamboo Cutting Board", "Scented Candle", "Wall Clock", "Storage Baskets",
+    )),
+    "Outdoor": Category((19, 299), 6, (
+        "Trail Backpack", "Camping Stove", "Insulated Bottle", "Hammock",
+        "Headlamp", "Trekking Poles", "Rain Shell", "Folding Chair",
+    )),
+    "Apparel": Category((19, 149), 14, (
+        "Merino Tee", "Denim Jacket", "Running Shoes", "Wool Beanie",
+        "Rain Boots", "Fleece Hoodie", "Chino Pants", "Leather Belt",
+    )),
+    "Books": Category((9, 49), 2, (
+        "The Copper Lantern", "Northbound", "Salt and Cedar", "The Last Orchard",
+        "Glass Harbor", "Field Notes", "Paper Moons", "The Long Table",
+    )),
+}
+
+
+@dataclass(frozen=True)
+class Product:
+    product_id: int
+    name: str
+    category: str
+    unit_price_cents: int
+
+
+def generate_products(rng: random.Random) -> list[Product]:
+    products = []
+    for category, spec in CATEGORIES.items():
+        low, high = spec.price_range
+        for name in spec.products:
+            price_cents = rng.randint(low, high) * 100 + 99
+            products.append(Product(len(products) + 1, name, category, price_cents))
+    return products

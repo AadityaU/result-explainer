@@ -10,8 +10,10 @@ from __future__ import annotations
 import calendar
 import csv
 import random
+from bisect import bisect_right
 from dataclasses import astuple, dataclass, fields
 from datetime import date, timedelta
+from itertools import accumulate
 from pathlib import Path
 from typing import TypeVar
 
@@ -20,14 +22,14 @@ T = TypeVar("T")
 SEED = 42
 YEAR = 2025
 
-CUSTOMER_COUNT = 600
+CUSTOMER_COUNT = 2500
 SIGNUP_START = date(2023, 1, 1)
 SIGNUP_END = date(2025, 11, 30)
 
 REGIONS = {"North": 24, "South": 22, "East": 26, "West": 20, "Central": 8}
 SEGMENTS = {"consumer": 80, "business": 20}
 # How often a customer buys relative to others: most buy rarely, a few buy a lot.
-ACTIVITY = {1: 50, 2: 30, 4: 15, 8: 5}
+ACTIVITY = {1: 70, 2: 18, 4: 9, 8: 3}
 
 
 @dataclass(frozen=True)
@@ -140,15 +142,20 @@ class Order:
 def generate_orders(
     rng: random.Random, customers: list[Customer], activity: dict[int, int]
 ) -> list[Order]:
+    # A customer can only order after signing up: sort by signup date so the
+    # eligible customers for any order date are a prefix of this list.
+    by_signup = sorted(customers, key=lambda c: c.signup_date)
+    signup_dates = [c.signup_date for c in by_signup]
+    cum_weights = list(accumulate(activity[c.customer_id] for c in by_signup))
+
     placed: list[tuple[date, Customer]] = []
     for month, count in MONTH_ORDERS.items():
         last_day = calendar.monthrange(YEAR, month)[1]
         for _ in range(count):
             order_date = date(YEAR, month, rng.randint(1, last_day))
-            # A customer can only order after signing up.
-            eligible = [c for c in customers if c.signup_date <= order_date.isoformat()]
-            weights = [activity[c.customer_id] for c in eligible]
-            placed.append((order_date, rng.choices(eligible, weights=weights)[0]))
+            eligible = bisect_right(signup_dates, order_date.isoformat())
+            customer = rng.choices(by_signup[:eligible], cum_weights=cum_weights[:eligible])[0]
+            placed.append((order_date, customer))
     placed.sort(key=lambda item: item[0])  # stable sort: same-day orders keep their order
 
     orders = []

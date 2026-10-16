@@ -15,7 +15,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from result_explainer.paths import QUESTIONS_DIR
+from result_explainer.db import connect_read_only
+from result_explainer.paths import DEFAULT_DB, QUESTIONS_DIR
 
 COLUMN_TYPES = ("label", "count", "currency", "percent", "number")
 HEADER_KEYS = ("id", "title", "question", "columns", "focus")
@@ -92,3 +93,25 @@ def get_question(question_id: str, directory: Path = QUESTIONS_DIR) -> Question:
         raise QuestionError(
             f"Unknown question {question_id!r}. Approved questions: {approved}"
         ) from None
+
+
+@dataclass(frozen=True)
+class QueryResult:
+    columns: list[str]
+    rows: list[tuple]
+
+
+def run_question(question: Question, db_path: Path = DEFAULT_DB) -> QueryResult:
+    """Run an approved question on a read-only connection and check its columns."""
+    conn = connect_read_only(db_path)
+    try:
+        cursor = conn.execute(question.sql)  # sqlite3 refuses more than one statement
+        columns = [description[0] for description in cursor.description]
+        rows = cursor.fetchall()
+    finally:
+        conn.close()
+    if columns != list(question.columns):
+        raise QuestionError(
+            f"{question.id}: query returned columns {columns}, header declares {list(question.columns)}"
+        )
+    return QueryResult(columns, rows)

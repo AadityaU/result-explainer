@@ -10,6 +10,7 @@ from result_explainer import __version__
 from result_explainer.db import build_database
 from result_explainer.generate import SEED, generate, write_csv
 from result_explainer.paths import DATA_DIR, DEFAULT_DB, ROOT
+from result_explainer.questions import load_questions
 
 
 def cmd_generate_data(args: argparse.Namespace) -> int:
@@ -23,6 +24,13 @@ def cmd_build_db(args: argparse.Namespace) -> int:
     for table, count in counts.items():
         print(f"{table:<12} {count:>6,} rows")
     print(f"built {args.db}")
+    return 0
+
+
+def cmd_list(args: argparse.Namespace) -> int:
+    for question in load_questions().values():
+        print(f"{question.id}  {question.title}")
+        print(f"     {question.question}")
     return 0
 
 
@@ -43,6 +51,9 @@ def build_parser() -> argparse.ArgumentParser:
     build_cmd = commands.add_parser("build-db", help="build the SQLite database from data/*.csv")
     add_db_option(build_cmd)
     build_cmd.set_defaults(handler=cmd_build_db)
+
+    list_cmd = commands.add_parser("list", help="show the approved questions")
+    list_cmd.set_defaults(handler=cmd_list)
     return parser
 
 

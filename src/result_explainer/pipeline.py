@@ -1,6 +1,7 @@
 """Question -> SQL -> facts -> explainer -> validator, with one retry and a safe fallback.
 
 Statuses:
+    empty     the query returned no rows; the model is never called
     grounded  the explainer's text passed every grounding check
     template  the deterministic template was asked for directly
     fallback  the explainer failed or was rejected; the template text is shown instead
@@ -54,6 +55,9 @@ def explain_facts(
     facts: FactTable, explainer: Explainer, max_attempts: int = MAX_ATTEMPTS
 ) -> Explanation:
     template = TemplateExplainer()
+    if facts.is_empty:
+        # Nothing to explain: a model given no data can only make something up.
+        return Explanation(facts, template.explain(facts), "empty", template.name, [])
     if isinstance(explainer, TemplateExplainer):
         return Explanation(facts, template.explain(facts), "template", template.name, [])
 

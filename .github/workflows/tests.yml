@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install from a clean checkout
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,ui]"
       - name: Build the database
         run: python -m result_explainer build-db
       - name: Validate every approved question

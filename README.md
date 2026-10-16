@@ -215,3 +215,124 @@ from the header is refused. `focus` is the main metric the template summary desc
 | q08 | New vs returning customers by quarter | 4 | a real zero: no returning customers in the first quarter |
 | q09 | Delivery time by region | 5 | decimal averages |
 | q10 | Orders that missed the 14-day delivery promise | 0 | **empty result by design** |
+
+## How grounding works
+
+Every cell of the result becomes a **fact** with a reference id: `r{row}.{column}` (rows start
+at 1), plus `meta.row_count`. The explainer sees only these facts and must cite them in square
+brackets. Run `ask <id> --show-facts` to see them all.
+
+The validator ([`validator.py`](src/result_explainer/validator.py)) splits the explanation into
+sentences and reports:
+
+| Issue | Meaning |
+|-------|---------|
+| `invented_number` | A number that matches no value in the result |
+| `uncited_number` | A real value, but not held by any fact cited in the same sentence |
+| `mismatched_label` | The sentence names a row (e.g. a region) that none of its citations belong to |
+| `unsupported_calculation` | Words like *doubled*, *twice* or *3x* that imply math the query didn't do |
+| `unknown_reference` | A citation id that doesn't exist |
+| `no_citations` | A non-empty result explained without citing anything |
+| `empty` | No text at all |
+
+Matching rules:
+
+- A number may be rounded or abbreviated, as long as it is a faithful rounding:
+  `$327,496.25` can be written `$327,496` or `$327.5k`, but not `$327k`.
+- Signs are compared as absolute values, so "fell 7.5%" can cite `-7.5%`.
+- Digits inside labels (`2025-03`, `2025-Q1`) aren't read as numbers. Years from labels and
+  numbers from the question itself ("top 10", "14-day") need no citation.
+- `n/a` (NULL) values can't back any number.
+
+The pipeline ([`pipeline.py`](src/result_explainer/pipeline.py)) gives the model two attempts,
+sending the validator's issues back as feedback after the first one. If both fail, or the
+endpoint errors, the deterministic template summary is shown instead. Each answer is labelled:
+
+| Status | Meaning |
+|--------|---------|
+| `grounded` | The model's answer passed every check |
+| `template` | The template was requested directly (no model) |
+| `fallback` | The model's answer was rejected or the call failed; the template is shown and the rejected attempts are listed |
+| `empty` | The query returned no rows, so the model was never called |
+
+**Known limitations.** The validator checks numbers, citations and named rows. It does not check
+direction words ("rose" vs "fell") or qualitative claims that contain no number or row name. It
+also doesn't recognise month names ("March") as the `2025-03` label. These are covered by the
+prompt rules, not enforced.
+
+## Failure and edge-case demonstrations
+
+**A model that invents numbers.** The `faulty` explainer inflates a real figure by 25% and adds
+a comparison the query never computed. It is rejected on both attempts and the template summary
+is shown instead:
+
+```text
+$ python -m result_explainer ask q03 --explainer faulty
+...
+Explanation (fallback - the model's answer was rejected, showing the template summary instead)
+The query returned 5 rows [meta.row_count]. Net revenue peaked at $327,496.25 for North
+[r1.net_revenue]. ...
+
+Rejected attempts
+  1. North led with $409,370.31 [r1.net_revenue], roughly double the next best result.
+     - invented_number: $409,370.31 does not appear anywhere in the result
+     - unsupported_calculation: "double" implies a calculation the query did not return
+  2. ...
+```
+
+**An empty result.** q10 returns no rows because every order met the delivery promise. The
+model is never called, so it has no chance to fill the gap:
+
+```text
+$ python -m result_explainer ask q10
+...
+(no rows)
+
+Explanation (empty result - nothing to explain, the model was not called)
+The query returned 0 rows [meta.row_count], so nothing matched the question "Orders that
+missed the 14-day delivery promise".
+```
+
+Also covered: NULL growth for the first month in q05 (shown as `n/a`), a model endpoint that is
+unreachable (falls back), and missing model settings (clear error, exit code 2).
+
+## Tests
+
+```bash
+pytest          # 124 tests, no network needed
+python -m result_explainer check
+```
+
+| File | Covers |
+|------|--------|
+| `test_generate.py` | Same seed gives identical bytes; committed CSVs match the generator; data invariants |
+| `test_db.py` | Every CSV row loads, foreign keys hold, NULLs survive, read-only connection rejects writes |
+| `test_questions.py` | All 10 questions run and return their declared columns; q10 empty; header parsing errors |
+| `test_facts.py` | Display formatting, half-up rounding, reference ids, NULL handling |
+| `test_validator.py` | Invented, uncited and misattributed numbers; rounding; labels; calculation words |
+| `test_template.py` | The template explanation passes the validator for every question |
+| `test_llm.py` | Request payload, auth header, error handling and settings, against a mocked endpoint |
+| `test_pipeline.py` | Retry with feedback, fallback after two rejections, empty results skip the model |
+| `test_cli.py` | Every command and error path |
+
+CI runs `build-db`, `check` and `pytest` from a clean checkout on Python 3.10 and 3.13.
+
+## Project layout
+
+```text
+sql/schema.sql                  data model (DDL)
+sql/questions/                  the 10 approved questions
+data/                           generated sample data (CSV)
+src/result_explainer/
+  cli.py                        commands
+  generate.py                   seeded synthetic data generator
+  db.py                         build the database, read-only connections
+  questions.py                  question files, registry and runner
+  formatting.py  facts.py       displayed values and reference ids
+  validator.py                  grounding checks
+  explainers/                   base interface, template, llm, faulty (demo only)
+  pipeline.py                   retry and fallback
+  render.py                     terminal output
+tests/                          pytest suite
+docs/design-note.md             design and decision note
+```

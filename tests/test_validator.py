@@ -101,6 +101,30 @@ def test_flags_wording_that_implies_extra_calculation(text):
     assert "unsupported_calculation" in kinds(text)
 
 
+REGIONS = facts_for(
+    "q03",
+    [("North", 1008, 327496.25, 324.9), ("East", 976, 297743.54, 305.07), ("Central", 349, 100843.14, 288.95)],
+)
+
+
+def test_rejects_a_real_number_attributed_to_the_wrong_row():
+    assert kinds("North peaked at $297,743.54 [r2.net_revenue].", REGIONS) == ["mismatched_label"]
+
+
+def test_accepts_comparisons_that_cite_every_row_named():
+    text = "North led with $327,496.25 [r1.net_revenue], ahead of East at $297,743.54 [r2.net_revenue]."
+    assert kinds(text, REGIONS) == []
+
+
+def test_naming_an_uncited_row_alongside_cited_facts_is_rejected():
+    text = "North led with $327,496.25 [r1.net_revenue], well ahead of Central."
+    assert kinds(text, REGIONS) == ["mismatched_label"]
+
+
+def test_labels_only_match_whole_words():
+    assert kinds("Sales across Northern areas were steady [r1.net_revenue].", REGIONS) == []
+
+
 def test_empty_result_can_only_report_that_nothing_was_returned():
     empty = facts_for("q10", [])
     assert kinds("The query returned 0 rows [meta.row_count].", empty) == []

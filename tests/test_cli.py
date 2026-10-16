@@ -85,6 +85,12 @@ def test_missing_database_says_how_to_build_it(capsys, tmp_path):
     assert "build-db" in err
 
 
+def test_evaluate_without_a_model_is_a_clear_error(capsys, db_path):
+    code, _, err = run(capsys, "evaluate", "--db", str(db_path))
+    assert code == 2
+    assert "No model configured" in err
+
+
 def test_check_passes_on_the_sample_data(capsys, db_path):
     code, out, _ = run(capsys, "check", "--db", str(db_path))
     assert code == 0

@@ -1,0 +1,48 @@
+"""The only module that talks to a language model: any OpenAI-compatible chat endpoint."""
+
+from __future__ import annotations
+
+from result_explainer.facts import FactTable
+
+SYSTEM_PROMPT = """\
+You explain SQL query results to business readers in plain language.
+
+Rules:
+1. Use only the facts provided. Never invent, estimate or calculate a number: no sums,
+   differences, ratios, averages, percentages or rankings that are not already a fact.
+2. Every sentence that contains a number must cite the fact it came from, using the
+   fact id in square brackets right after the number, for example [r2.net_revenue].
+3. Copy numbers exactly as they are displayed in the facts.
+4. A fact shown as n/a has no value. Say it is not available; never replace it with a number.
+5. Do not use words like doubled, tripled, twice or "x times". Use higher, lower,
+   largest or smallest instead.
+6. Write 3 to 5 short sentences of plain prose. No headings, lists or tables.
+7. If the facts cannot answer part of the question, say so instead of guessing."""
+
+
+def build_messages(facts: FactTable, feedback: list[str] | None = None) -> list[dict[str, str]]:
+    """The chat messages for one attempt; feedback carries the previous attempt's issues."""
+    question = facts.question
+    lines = [
+        f"Question: {question.title}",
+        f"What it asks: {question.question}",
+        "",
+        "Facts:",
+    ]
+    for fact in facts.facts.values():
+        label = facts.row_label(fact.row) if fact.row and fact.kind != "label" else ""
+        context = f" ({label})" if label else ""
+        lines.append(f"[{fact.ref}] {fact.column} = {fact.display}{context}")
+
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": "\n".join(lines)},
+    ]
+    if feedback:
+        problems = "\n".join(f"- {message}" for message in feedback)
+        messages.append({
+            "role": "user",
+            "content": f"Your previous answer failed these checks:\n{problems}\n"
+                       "Write a new answer that follows every rule.",
+        })
+    return messages

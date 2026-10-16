@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 import httpx
@@ -59,6 +61,27 @@ class LLMSettings:
     model: str
     api_key: str | None = field(default=None, repr=False)  # never printed
     timeout_seconds: float = 60.0
+
+    @classmethod
+    def from_env(cls, env: Mapping[str, str] | None = None) -> LLMSettings:
+        """Read LLM_BASE_URL, LLM_MODEL, LLM_API_KEY and LLM_TIMEOUT_SECONDS.
+
+        The key is optional because local servers such as Ollama don't need one.
+        """
+        env = os.environ if env is None else env
+        base_url = env.get("LLM_BASE_URL", "").strip()
+        model = env.get("LLM_MODEL", "").strip()
+        if not base_url or not model:
+            raise ExplainerError(
+                "LLM_BASE_URL and LLM_MODEL must be set to use the LLM explainer "
+                "(copy .env.example to .env and fill it in)."
+            )
+        timeout = env.get("LLM_TIMEOUT_SECONDS", "").strip()
+        try:
+            timeout_seconds = float(timeout) if timeout else 60.0
+        except ValueError:
+            raise ExplainerError(f"LLM_TIMEOUT_SECONDS must be a number, got {timeout!r}") from None
+        return cls(base_url, model, env.get("LLM_API_KEY", "").strip() or None, timeout_seconds)
 
 
 class LLMExplainer:

@@ -38,3 +38,19 @@ CREATE TABLE order_items (
     discount_pct      INTEGER NOT NULL DEFAULT 0 CHECK (discount_pct IN (0, 10, 20)),
     PRIMARY KEY (order_id, product_id)
 );
+
+-- A return refers to one order line; quantity is units sent back from that line.
+CREATE TABLE returns (
+    return_id    INTEGER PRIMARY KEY,
+    order_id     INTEGER NOT NULL,
+    product_id   INTEGER NOT NULL,
+    return_date  TEXT    NOT NULL,
+    quantity     INTEGER NOT NULL CHECK (quantity > 0),
+    reason       TEXT    NOT NULL,
+    FOREIGN KEY (order_id, product_id) REFERENCES order_items (order_id, product_id)
+);
+
+CREATE INDEX idx_orders_customer ON orders (customer_id);
+CREATE INDEX idx_orders_date ON orders (order_date);
+CREATE INDEX idx_order_items_product ON order_items (product_id);
+CREATE INDEX idx_returns_line ON returns (order_id, product_id);

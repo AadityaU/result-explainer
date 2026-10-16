@@ -8,9 +8,11 @@ are ISO-8601 text.
 from __future__ import annotations
 
 import calendar
+import csv
 import random
-from dataclasses import dataclass
+from dataclasses import astuple, dataclass, fields
 from datetime import date, timedelta
+from pathlib import Path
 from typing import TypeVar
 
 T = TypeVar("T")
@@ -229,3 +231,47 @@ def generate_returns(
                    rng.randint(1, item.quantity), rng.choice(RETURN_REASONS))
         )
     return returns
+
+
+@dataclass(frozen=True)
+class Dataset:
+    customers: list[Customer]
+    products: list[Product]
+    orders: list[Order]
+    order_items: list[OrderItem]
+    returns: list[Return]
+
+
+# Load order respects foreign keys.
+ROW_TYPES = {
+    "customers": Customer,
+    "products": Product,
+    "orders": Order,
+    "order_items": OrderItem,
+    "returns": Return,
+}
+TABLES = tuple(ROW_TYPES)
+
+
+def generate(seed: int = SEED) -> Dataset:
+    rng = random.Random(seed)
+    customers, activity = generate_customers(rng)
+    products = generate_products(rng)
+    orders = generate_orders(rng, customers, activity)
+    items = generate_order_items(rng, orders, products)
+    returns = generate_returns(rng, orders, items, products)
+    return Dataset(customers, products, orders, items, returns)
+
+
+def write_csv(dataset: Dataset, out_dir: Path) -> list[Path]:
+    """Write one CSV per table (LF line endings, empty field for NULL)."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for table, row_type in ROW_TYPES.items():
+        path = out_dir / f"{table}.csv"
+        with path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.writer(handle, lineterminator="\n")
+            writer.writerow([field.name for field in fields(row_type)])
+            writer.writerows(astuple(row) for row in getattr(dataset, table))
+        paths.append(path)
+    return paths

@@ -48,20 +48,23 @@ def cmd_list(args: argparse.Namespace) -> int:
 EXPLAINERS = ("auto", "template", "llm", "faulty")
 
 
-def make_explainer(name: str) -> Explainer:
-    """'auto' uses the LLM when LLM_BASE_URL is configured, otherwise the template."""
+def make_explainer(name: str, model: str | None = None) -> Explainer:
+    """'auto' uses the LLM when LLM_BASE_URL is configured, otherwise the template.
+
+    `model` overrides LLM_MODEL for this explainer only.
+    """
     if name == "auto":
         name = "llm" if os.environ.get("LLM_BASE_URL", "").strip() else "template"
     if name == "template":
         return TemplateExplainer()
     if name == "faulty":
         return FaultyExplainer()
-    return LLMExplainer(LLMSettings.from_env())
+    return LLMExplainer(LLMSettings.from_env().with_model(model))
 
 
 def cmd_ask(args: argparse.Namespace) -> int:
     question = get_question(args.question_id)
-    explanation = explain_question(question, make_explainer(args.explainer), args.db)
+    explanation = explain_question(question, make_explainer(args.explainer, args.model), args.db)
     print(render_explanation(explanation, show_sql=args.show_sql, show_facts=args.show_facts))
     return 0
 
@@ -119,6 +122,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="auto (default): llm if LLM_BASE_URL is set, else template; "
              "faulty: deliberately invents numbers to show the grounding guard",
     )
+    ask_cmd.add_argument("--model", help="use this model instead of LLM_MODEL, e.g. google/gemini-4-argon")
     ask_cmd.add_argument("--show-sql", action="store_true", help="print the approved SQL")
     ask_cmd.add_argument("--show-facts", action="store_true", help="print every fact and its reference id")
     add_db_option(ask_cmd)

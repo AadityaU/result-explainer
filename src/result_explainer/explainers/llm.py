@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import httpx
 
@@ -85,12 +85,25 @@ class LLMSettings:
             raise ExplainerError(f"LLM_TIMEOUT_SECONDS must be a number, got {timeout!r}") from None
         return cls(base_url, model, env.get("LLM_API_KEY", "").strip() or None, timeout_seconds)
 
+    def with_model(self, model: str | None) -> LLMSettings:
+        """The same endpoint and key with a different model (None keeps the current one)."""
+        return replace(self, model=model.strip()) if model and model.strip() else self
+
+
+def configured_models(env: Mapping[str, str] | None = None) -> list[str]:
+    """Models offered for selection: LLM_MODELS (comma-separated), else LLM_MODEL."""
+    env = os.environ if env is None else env
+    listed = [m.strip() for m in env.get("LLM_MODELS", "").split(",") if m.strip()]
+    default = env.get("LLM_MODEL", "").strip()
+    if default and default not in listed:
+        listed.insert(0, default)
+    return listed
+
 
 class LLMExplainer:
-    name = "llm"
-
     def __init__(self, settings: LLMSettings, client: httpx.Client | None = None) -> None:
         self.settings = settings
+        self.name = f"llm ({settings.model})"
         self._client = client or httpx.Client(timeout=settings.timeout_seconds)
 
     def explain(self, facts: FactTable, feedback: list[str] | None = None) -> str:

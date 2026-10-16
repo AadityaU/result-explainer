@@ -4,7 +4,13 @@ import httpx
 import pytest
 
 from result_explainer.explainers.base import ExplainerError
-from result_explainer.explainers.llm import SYSTEM_PROMPT, LLMExplainer, LLMSettings, build_messages
+from result_explainer.explainers.llm import (
+    SYSTEM_PROMPT,
+    LLMExplainer,
+    LLMSettings,
+    build_messages,
+    configured_models,
+)
 from result_explainer.facts import build_facts
 from result_explainer.questions import QueryResult, load_questions
 
@@ -87,6 +93,20 @@ def test_settings_from_env():
         "https://api.example.com/v1", "some-model", 15.0,
     )
     assert "sk-secret" not in repr(settings)
+
+
+def test_model_can_be_overridden_per_request():
+    settings = SETTINGS.with_model("google/gemini-4-argon")
+    assert (settings.model, settings.api_key) == ("google/gemini-4-argon", "sk-test")
+    assert SETTINGS.with_model(None) is SETTINGS
+    assert LLMExplainer(settings).name == "llm (google/gemini-4-argon)"
+
+
+def test_configured_models_lists_the_default_first():
+    env = {"LLM_MODEL": "a/one", "LLM_MODELS": "b/two, a/one ,c/three"}
+    assert configured_models(env) == ["b/two", "a/one", "c/three"]
+    assert configured_models({"LLM_MODEL": "a/one", "LLM_MODELS": "b/two"}) == ["a/one", "b/two"]
+    assert configured_models({}) == []
 
 
 def test_settings_require_url_and_model():

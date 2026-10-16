@@ -44,7 +44,14 @@ def split_sentences(text: str) -> list[str]:
     return [part.strip() for part in SENTENCE_BREAK.split(text) if part.strip()]
 
 
-CITATION = re.compile(r"\[(r\d+\.[a-z_]+|meta\.[a-z_]+)\]")
+REFERENCE = r"(?:r\d+\.[a-z_]+|meta\.[a-z_]+)"
+# One id per bracket, or several separated by commas: [r1.net_revenue, r1.delivered_orders].
+CITATION = re.compile(rf"\[({REFERENCE}(?:\s*[,;]\s*{REFERENCE})*)\]")
+
+
+def citations(text: str) -> list[str]:
+    """Every reference id cited in the text, in order, with grouped citations split up."""
+    return [ref.strip() for group in CITATION.findall(text) for ref in re.split(r"[,;]", group)]
 # Ratios and multiples the model would have to compute itself. Any comparison the
 # explanation needs (growth, share) must already be a column in the result.
 CALCULATION = re.compile(
@@ -88,7 +95,7 @@ def validate(text: str, facts: FactTable) -> ValidationResult:
 
     for sentence in split_sentences(text):
         cited = []
-        for ref in CITATION.findall(sentence):
+        for ref in citations(sentence):
             if ref in facts.facts:
                 cited.append(facts.facts[ref])
             else:

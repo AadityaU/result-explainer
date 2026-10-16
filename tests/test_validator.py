@@ -2,7 +2,7 @@ import pytest
 
 from result_explainer.facts import build_facts
 from result_explainer.questions import QueryResult, load_questions
-from result_explainer.validator import validate
+from result_explainer.validator import citations, validate
 
 QUESTIONS = load_questions()
 
@@ -56,6 +56,19 @@ def test_rejects_a_number_backed_by_the_wrong_citation():
 def test_every_sentence_with_a_number_needs_its_own_citation():
     text = "January had 263 orders [r1.delivered_orders]. December had 529 orders."
     assert kinds(text) == ["uncited_number"]
+
+
+def test_accepts_grouped_citations():
+    # Both models in the evaluation cite this way; each id in the group counts.
+    text = "January had $87,181.29 from 263 orders [r1.net_revenue, r1.delivered_orders]."
+    assert kinds(text) == []
+    assert citations("[r1.net_revenue, r1.delivered_orders] and [meta.row_count]") == [
+        "r1.net_revenue", "r1.delivered_orders", "meta.row_count",
+    ]
+
+
+def test_rejects_unknown_ids_inside_a_group():
+    assert kinds("January had $87,181.29 [r1.net_revenue, r9.oops].") == ["unknown_reference"]
 
 
 def test_rejects_unknown_references():

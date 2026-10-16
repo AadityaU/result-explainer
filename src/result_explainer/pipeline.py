@@ -17,7 +17,7 @@ from result_explainer.explainers.template import TemplateExplainer
 from result_explainer.facts import FactTable, build_facts
 from result_explainer.paths import DEFAULT_DB
 from result_explainer.questions import Question, run_question
-from result_explainer.validator import CITATION, Issue, validate
+from result_explainer.validator import Issue, citations, validate
 
 MAX_ATTEMPTS = 2
 
@@ -41,7 +41,7 @@ class Explanation:
         return self.facts.question
 
     def cited_refs(self) -> list[str]:
-        return list(dict.fromkeys(CITATION.findall(self.text)))
+        return list(dict.fromkeys(citations(self.text)))
 
 
 def explain_question(

@@ -1,0 +1,445 @@
+return_id,order_id,product_id,return_date,quantity,reason
+1,1,38,2025-01-11,1,damaged in transit
+2,1,25,2025-01-27,1,wrong size
+3,10,25,2025-01-27,1,wrong size
+4,17,24,2025-01-13,1,changed mind
+5,21,33,2025-01-12,1,changed mind
+6,80,6,2025-01-20,1,not as described
+7,82,27,2025-02-08,2,not as described
+8,100,32,2025-01-22,2,not as described
+9,140,20,2025-02-04,2,changed mind
+10,152,25,2025-01-30,1,damaged in transit
+11,168,27,2025-01-29,1,not as described
+12,169,31,2025-02-17,1,not as described
+13,183,35,2025-02-09,1,changed mind
+14,198,29,2025-02-02,1,wrong size
+15,201,26,2025-02-18,1,changed mind
+16,206,14,2025-02-16,1,damaged in transit
+17,215,13,2025-01-31,1,damaged in transit
+18,220,28,2025-02-05,2,damaged in transit
+19,225,31,2025-02-12,1,not as described
+20,236,6,2025-02-20,1,damaged in transit
+21,241,28,2025-02-14,1,damaged in transit
+22,255,25,2025-02-12,1,wrong size
+23,274,6,2025-02-09,2,wrong size
+24,285,32,2025-02-18,1,wrong size
+25,286,29,2025-02-24,1,not as described
+26,288,1,2025-02-15,1,damaged in transit
+27,298,28,2025-02-27,1,wrong size
+28,339,16,2025-03-06,1,wrong size
+29,340,29,2025-02-20,1,changed mind
+30,350,37,2025-03-10,1,damaged in transit
+31,357,20,2025-03-01,1,changed mind
+32,379,22,2025-02-23,1,damaged in transit
+33,383,2,2025-03-12,1,changed mind
+34,395,26,2025-03-12,1,not as described
+35,405,1,2025-02-28,1,damaged in transit
+36,409,38,2025-03-11,2,not as described
+37,413,31,2025-03-03,1,changed mind
+38,418,29,2025-03-01,1,wrong size
+39,420,32,2025-02-27,1,not as described
+40,461,25,2025-03-16,1,changed mind
+41,473,3,2025-03-25,1,damaged in transit
+42,480,32,2025-03-19,1,changed mind
+43,488,28,2025-03-05,1,changed mind
+44,502,27,2025-03-16,3,changed mind
+45,505,21,2025-03-18,1,changed mind
+46,506,18,2025-03-26,2,damaged in transit
+47,531,25,2025-03-20,1,not as described
+48,543,7,2025-03-09,1,damaged in transit
+49,552,23,2025-03-10,2,changed mind
+50,557,31,2025-03-18,1,not as described
+51,585,23,2025-03-14,1,changed mind
+52,586,39,2025-03-16,1,not as described
+53,596,3,2025-03-26,1,not as described
+54,601,36,2025-03-17,2,wrong size
+55,602,24,2025-03-27,1,wrong size
+56,602,26,2025-03-12,2,wrong size
+57,635,20,2025-03-27,1,not as described
+58,636,21,2025-03-29,1,changed mind
+59,639,27,2025-04-09,1,wrong size
+60,640,25,2025-04-11,2,damaged in transit
+61,652,13,2025-04-12,1,not as described
+62,654,28,2025-04-06,2,wrong size
+63,673,8,2025-04-11,1,changed mind
+64,684,8,2025-04-01,2,changed mind
+65,685,6,2025-03-27,2,changed mind
+66,686,19,2025-04-12,1,not as described
+67,687,31,2025-04-01,1,wrong size
+68,693,27,2025-04-07,1,not as described
+69,694,30,2025-04-05,1,not as described
+70,718,1,2025-04-11,1,wrong size
+71,729,32,2025-03-31,1,wrong size
+72,738,28,2025-04-16,1,wrong size
+73,742,4,2025-04-06,2,changed mind
+74,757,4,2025-03-31,1,not as described
+75,783,28,2025-04-23,1,not as described
+76,785,4,2025-04-08,1,not as described
+77,809,25,2025-04-16,1,damaged in transit
+78,834,33,2025-04-13,1,not as described
+79,859,40,2025-04-25,1,not as described
+80,860,32,2025-04-23,1,changed mind
+81,883,30,2025-05-01,2,not as described
+82,884,27,2025-04-28,1,not as described
+83,892,7,2025-04-14,1,wrong size
+84,899,1,2025-04-14,1,changed mind
+85,903,29,2025-04-23,1,wrong size
+86,911,28,2025-05-03,1,damaged in transit
+87,919,20,2025-05-06,1,changed mind
+88,926,28,2025-04-21,1,wrong size
+89,951,11,2025-05-07,1,changed mind
+90,951,12,2025-04-27,2,not as described
+91,952,30,2025-04-23,1,wrong size
+92,954,7,2025-04-23,2,wrong size
+93,961,31,2025-04-20,1,changed mind
+94,965,30,2025-04-28,1,damaged in transit
+95,969,29,2025-04-28,1,damaged in transit
+96,984,25,2025-04-30,1,changed mind
+97,996,25,2025-05-13,1,wrong size
+98,1011,26,2025-04-24,1,damaged in transit
+99,1050,25,2025-04-28,1,damaged in transit
+100,1085,31,2025-05-16,1,not as described
+101,1088,32,2025-05-14,1,not as described
+102,1091,9,2025-05-12,1,not as described
+103,1097,30,2025-04-30,1,wrong size
+104,1098,17,2025-05-06,1,wrong size
+105,1102,27,2025-05-14,1,damaged in transit
+106,1121,2,2025-05-09,1,wrong size
+107,1127,31,2025-05-21,1,not as described
+108,1140,31,2025-05-10,1,changed mind
+109,1145,5,2025-05-14,2,wrong size
+110,1158,35,2025-05-07,1,not as described
+111,1160,14,2025-05-28,1,wrong size
+112,1166,26,2025-05-29,1,wrong size
+113,1188,40,2025-05-12,1,not as described
+114,1188,25,2025-05-22,2,wrong size
+115,1207,32,2025-05-12,2,damaged in transit
+116,1222,27,2025-05-10,1,not as described
+117,1226,20,2025-05-17,1,damaged in transit
+118,1227,25,2025-05-26,1,changed mind
+119,1245,25,2025-05-27,1,wrong size
+120,1260,16,2025-05-26,1,not as described
+121,1262,19,2025-06-05,1,damaged in transit
+122,1285,37,2025-05-27,1,not as described
+123,1305,8,2025-06-06,1,wrong size
+124,1317,3,2025-05-26,1,changed mind
+125,1320,15,2025-06-08,2,damaged in transit
+126,1324,26,2025-06-04,1,damaged in transit
+127,1334,37,2025-06-08,1,wrong size
+128,1345,27,2025-06-10,1,wrong size
+129,1353,4,2025-05-23,1,damaged in transit
+130,1376,25,2025-06-11,1,damaged in transit
+131,1389,29,2025-05-30,1,not as described
+132,1394,25,2025-06-03,2,damaged in transit
+133,1415,5,2025-06-20,1,not as described
+134,1416,17,2025-06-07,2,wrong size
+135,1420,26,2025-06-06,1,wrong size
+136,1424,32,2025-06-09,1,wrong size
+137,1425,30,2025-06-11,1,damaged in transit
+138,1431,28,2025-06-19,2,damaged in transit
+139,1457,37,2025-06-02,1,damaged in transit
+140,1461,29,2025-06-14,1,damaged in transit
+141,1471,28,2025-06-20,2,wrong size
+142,1479,19,2025-06-15,1,damaged in transit
+143,1488,36,2025-06-22,1,changed mind
+144,1498,19,2025-06-24,2,wrong size
+145,1500,22,2025-06-11,1,damaged in transit
+146,1507,27,2025-06-26,1,damaged in transit
+147,1511,27,2025-06-26,1,damaged in transit
+148,1512,6,2025-06-22,1,damaged in transit
+149,1513,24,2025-06-11,1,not as described
+150,1538,4,2025-06-30,1,damaged in transit
+151,1553,4,2025-06-24,1,wrong size
+152,1568,27,2025-06-18,1,wrong size
+153,1570,10,2025-06-13,2,damaged in transit
+154,1582,21,2025-07-04,1,wrong size
+155,1590,19,2025-06-19,3,not as described
+156,1608,8,2025-06-26,2,not as described
+157,1608,32,2025-06-17,1,changed mind
+158,1644,29,2025-06-20,1,wrong size
+159,1656,8,2025-06-22,1,wrong size
+160,1683,23,2025-07-11,1,changed mind
+161,1684,9,2025-07-09,3,wrong size
+162,1691,32,2025-06-29,1,wrong size
+163,1703,5,2025-06-25,1,changed mind
+164,1711,6,2025-06-24,1,wrong size
+165,1712,32,2025-07-15,1,damaged in transit
+166,1715,11,2025-07-10,1,changed mind
+167,1717,15,2025-07-03,1,changed mind
+168,1725,23,2025-07-12,2,damaged in transit
+169,1745,30,2025-07-02,1,damaged in transit
+170,1750,2,2025-07-19,1,changed mind
+171,1750,9,2025-07-18,2,not as described
+172,1774,31,2025-07-12,1,wrong size
+173,1792,21,2025-07-16,1,wrong size
+174,1795,23,2025-07-26,1,damaged in transit
+175,1829,8,2025-07-13,1,not as described
+176,1837,38,2025-07-05,1,damaged in transit
+177,1840,14,2025-07-22,1,not as described
+178,1841,16,2025-07-05,1,changed mind
+179,1845,19,2025-07-10,1,wrong size
+180,1848,1,2025-07-13,1,changed mind
+181,1851,17,2025-08-01,1,not as described
+182,1855,19,2025-07-16,1,damaged in transit
+183,1857,30,2025-07-26,1,damaged in transit
+184,1867,27,2025-07-25,1,changed mind
+185,1895,30,2025-07-30,1,not as described
+186,1906,29,2025-07-18,1,wrong size
+187,1916,1,2025-07-16,1,not as described
+188,1926,27,2025-07-20,1,not as described
+189,1938,32,2025-07-30,1,damaged in transit
+190,1954,31,2025-08-01,1,wrong size
+191,1965,1,2025-08-10,1,wrong size
+192,1981,30,2025-07-31,2,not as described
+193,1983,22,2025-07-21,1,not as described
+194,1998,25,2025-08-01,1,changed mind
+195,2003,4,2025-08-03,1,changed mind
+196,2003,29,2025-07-27,1,changed mind
+197,2005,9,2025-08-15,1,damaged in transit
+198,2005,18,2025-08-15,1,damaged in transit
+199,2026,20,2025-08-09,1,not as described
+200,2035,26,2025-08-19,3,damaged in transit
+201,2044,31,2025-08-07,2,damaged in transit
+202,2066,30,2025-07-30,1,wrong size
+203,2081,32,2025-08-10,1,not as described
+204,2088,32,2025-08-19,2,not as described
+205,2110,29,2025-08-02,2,wrong size
+206,2115,25,2025-08-06,1,not as described
+207,2120,30,2025-08-05,1,changed mind
+208,2133,8,2025-08-13,1,changed mind
+209,2138,30,2025-08-19,1,wrong size
+210,2142,29,2025-08-13,1,wrong size
+211,2173,26,2025-08-27,1,changed mind
+212,2185,26,2025-08-31,1,changed mind
+213,2193,29,2025-08-28,1,changed mind
+214,2194,19,2025-08-27,1,changed mind
+215,2196,25,2025-08-23,1,changed mind
+216,2221,5,2025-08-14,1,not as described
+217,2230,25,2025-09-05,2,not as described
+218,2232,18,2025-08-15,1,changed mind
+219,2239,1,2025-09-01,1,not as described
+220,2265,29,2025-09-02,1,not as described
+221,2275,32,2025-08-19,1,not as described
+222,2284,4,2025-09-01,1,not as described
+223,2290,15,2025-09-09,1,changed mind
+224,2291,31,2025-08-30,1,damaged in transit
+225,2316,32,2025-08-22,1,damaged in transit
+226,2324,28,2025-08-25,1,wrong size
+227,2330,18,2025-08-28,1,changed mind
+228,2332,4,2025-09-04,1,changed mind
+229,2337,30,2025-09-03,3,not as described
+230,2338,7,2025-09-12,1,changed mind
+231,2349,15,2025-08-31,1,wrong size
+232,2352,8,2025-09-16,1,wrong size
+233,2360,24,2025-09-10,1,not as described
+234,2366,31,2025-09-03,2,changed mind
+235,2367,29,2025-09-08,1,wrong size
+236,2383,17,2025-08-28,1,damaged in transit
+237,2386,21,2025-09-04,1,wrong size
+238,2389,8,2025-09-09,1,damaged in transit
+239,2415,21,2025-08-30,1,wrong size
+240,2423,4,2025-09-17,1,damaged in transit
+241,2442,25,2025-09-02,1,wrong size
+242,2443,5,2025-09-13,1,wrong size
+243,2456,26,2025-09-09,1,changed mind
+244,2463,26,2025-09-19,1,not as described
+245,2479,21,2025-09-07,3,damaged in transit
+246,2504,19,2025-09-17,2,changed mind
+247,2504,27,2025-09-11,1,damaged in transit
+248,2505,27,2025-09-25,1,changed mind
+249,2515,40,2025-09-22,1,not as described
+250,2518,32,2025-09-26,1,changed mind
+251,2520,29,2025-09-10,1,damaged in transit
+252,2521,30,2025-09-23,1,changed mind
+253,2525,13,2025-09-29,2,not as described
+254,2536,29,2025-09-26,2,wrong size
+255,2549,3,2025-09-28,1,not as described
+256,2557,2,2025-09-18,2,wrong size
+257,2566,26,2025-09-13,2,damaged in transit
+258,2592,29,2025-09-21,1,damaged in transit
+259,2595,30,2025-10-03,1,changed mind
+260,2608,16,2025-09-20,1,wrong size
+261,2609,21,2025-09-20,1,damaged in transit
+262,2615,2,2025-09-27,1,wrong size
+263,2615,26,2025-09-26,3,damaged in transit
+264,2616,28,2025-09-28,1,damaged in transit
+265,2640,31,2025-10-01,1,wrong size
+266,2646,8,2025-10-09,1,damaged in transit
+267,2659,27,2025-09-24,1,changed mind
+268,2668,19,2025-10-12,1,changed mind
+269,2681,8,2025-09-26,1,not as described
+270,2682,21,2025-10-09,1,damaged in transit
+271,2693,25,2025-10-14,1,changed mind
+272,2701,12,2025-10-03,1,wrong size
+273,2704,15,2025-10-16,2,changed mind
+274,2708,21,2025-09-27,1,not as described
+275,2713,31,2025-10-11,3,damaged in transit
+276,2719,29,2025-10-18,1,changed mind
+277,2732,7,2025-10-19,1,changed mind
+278,2747,29,2025-10-14,1,changed mind
+279,2750,37,2025-10-19,2,damaged in transit
+280,2754,31,2025-10-21,1,damaged in transit
+281,2766,5,2025-10-08,2,damaged in transit
+282,2773,5,2025-10-04,1,wrong size
+283,2777,1,2025-10-09,1,damaged in transit
+284,2780,26,2025-10-15,1,not as described
+285,2792,30,2025-10-15,2,wrong size
+286,2795,18,2025-10-26,1,changed mind
+287,2803,28,2025-10-03,1,not as described
+288,2806,30,2025-10-07,1,changed mind
+289,2809,25,2025-10-20,1,changed mind
+290,2817,25,2025-10-18,2,damaged in transit
+291,2822,26,2025-10-27,1,damaged in transit
+292,2822,23,2025-10-24,1,not as described
+293,2838,30,2025-10-09,1,not as described
+294,2848,3,2025-10-24,1,damaged in transit
+295,2850,27,2025-10-18,1,wrong size
+296,2872,3,2025-10-12,1,damaged in transit
+297,2886,12,2025-10-22,3,wrong size
+298,2907,17,2025-10-24,1,not as described
+299,2924,25,2025-10-24,1,changed mind
+300,2927,13,2025-10-20,2,not as described
+301,2940,28,2025-10-24,2,damaged in transit
+302,2948,22,2025-10-20,1,changed mind
+303,2956,12,2025-10-26,1,not as described
+304,2959,21,2025-10-27,3,not as described
+305,2976,13,2025-11-04,1,changed mind
+306,2983,13,2025-11-03,1,damaged in transit
+307,2986,36,2025-10-20,1,damaged in transit
+308,2987,4,2025-10-25,1,changed mind
+309,3002,15,2025-10-30,1,damaged in transit
+310,3005,19,2025-11-02,1,damaged in transit
+311,3010,2,2025-11-07,1,damaged in transit
+312,3019,19,2025-10-25,1,wrong size
+313,3020,32,2025-10-22,1,damaged in transit
+314,3034,12,2025-11-10,2,changed mind
+315,3035,23,2025-10-21,1,changed mind
+316,3044,26,2025-11-07,2,damaged in transit
+317,3044,30,2025-11-08,2,wrong size
+318,3050,4,2025-11-10,2,not as described
+319,3052,28,2025-11-09,1,not as described
+320,3054,31,2025-10-30,1,not as described
+321,3059,12,2025-10-27,1,not as described
+322,3089,31,2025-10-28,1,wrong size
+323,3099,29,2025-11-07,1,not as described
+324,3111,25,2025-11-08,1,damaged in transit
+325,3135,11,2025-10-31,1,wrong size
+326,3137,16,2025-11-13,1,damaged in transit
+327,3146,26,2025-11-22,1,changed mind
+328,3159,18,2025-11-24,1,not as described
+329,3163,25,2025-11-10,1,wrong size
+330,3165,25,2025-11-22,1,wrong size
+331,3166,39,2025-11-15,1,changed mind
+332,3167,30,2025-11-20,3,damaged in transit
+333,3174,17,2025-11-26,1,wrong size
+334,3177,1,2025-11-12,3,wrong size
+335,3180,29,2025-11-20,1,wrong size
+336,3184,29,2025-11-20,1,changed mind
+337,3187,17,2025-11-17,1,wrong size
+338,3212,30,2025-11-23,1,damaged in transit
+339,3217,17,2025-11-26,1,wrong size
+340,3236,30,2025-11-20,1,wrong size
+341,3241,32,2025-11-13,1,damaged in transit
+342,3245,30,2025-11-12,1,not as described
+343,3251,27,2025-11-26,1,wrong size
+344,3255,11,2025-11-13,3,not as described
+345,3255,15,2025-12-03,1,not as described
+346,3273,27,2025-11-18,1,not as described
+347,3276,26,2025-11-21,1,wrong size
+348,3298,13,2025-11-14,2,changed mind
+349,3303,28,2025-11-18,1,not as described
+350,3304,28,2025-11-13,3,damaged in transit
+351,3310,31,2025-11-17,1,damaged in transit
+352,3311,25,2025-11-23,1,changed mind
+353,3337,30,2025-11-24,1,damaged in transit
+354,3344,23,2025-11-29,1,wrong size
+355,3346,29,2025-12-05,1,not as described
+356,3356,39,2025-12-05,1,changed mind
+357,3358,31,2025-12-01,2,not as described
+358,3380,4,2025-11-16,1,damaged in transit
+359,3401,39,2025-12-05,1,wrong size
+360,3412,27,2025-11-21,1,wrong size
+361,3412,26,2025-12-10,2,changed mind
+362,3415,32,2025-11-28,3,not as described
+363,3435,17,2025-11-26,2,damaged in transit
+364,3440,6,2025-12-07,1,changed mind
+365,3455,31,2025-11-26,1,not as described
+366,3460,25,2025-12-07,1,changed mind
+367,3483,27,2025-11-29,1,changed mind
+368,3511,20,2025-12-09,1,changed mind
+369,3516,12,2025-12-01,1,not as described
+370,3519,32,2025-12-15,2,not as described
+371,3536,15,2025-12-09,1,not as described
+372,3538,14,2025-12-11,1,changed mind
+373,3543,26,2025-12-05,2,damaged in transit
+374,3558,30,2025-12-20,1,changed mind
+375,3560,28,2025-11-26,2,not as described
+376,3567,19,2025-11-30,1,damaged in transit
+377,3581,22,2025-12-17,1,damaged in transit
+378,3585,26,2025-12-19,1,changed mind
+379,3599,31,2025-12-23,1,changed mind
+380,3609,10,2025-12-01,1,wrong size
+381,3632,14,2025-12-10,2,not as described
+382,3644,37,2025-12-07,2,not as described
+383,3645,28,2025-12-12,3,damaged in transit
+384,3662,6,2025-12-07,1,changed mind
+385,3679,17,2025-12-18,1,changed mind
+386,3682,15,2025-12-03,1,wrong size
+387,3684,15,2025-12-21,1,changed mind
+388,3689,29,2025-12-17,1,not as described
+389,3698,24,2025-12-13,1,not as described
+390,3701,38,2025-12-26,2,changed mind
+391,3703,25,2025-12-16,1,damaged in transit
+392,3710,20,2025-12-29,1,changed mind
+393,3714,13,2025-12-12,1,changed mind
+394,3715,39,2025-12-28,1,changed mind
+395,3726,32,2025-12-20,2,damaged in transit
+396,3739,30,2025-12-27,1,wrong size
+397,3758,13,2025-12-14,1,wrong size
+398,3788,31,2025-12-17,2,not as described
+399,3792,17,2025-12-27,1,changed mind
+400,3804,25,2025-12-15,1,wrong size
+401,3811,8,2025-12-25,1,changed mind
+402,3818,17,2025-12-25,1,damaged in transit
+403,3831,25,2026-01-05,1,not as described
+404,3833,32,2025-12-16,1,not as described
+405,3834,31,2025-12-16,2,damaged in transit
+406,3844,32,2025-12-22,1,changed mind
+407,3854,16,2025-12-24,1,damaged in transit
+408,3858,2,2026-01-04,1,wrong size
+409,3861,23,2025-12-29,1,damaged in transit
+410,3866,12,2025-12-30,1,damaged in transit
+411,3893,27,2025-12-29,1,damaged in transit
+412,3920,27,2025-12-24,1,not as described
+413,3924,7,2026-01-06,1,not as described
+414,3937,6,2025-12-25,1,not as described
+415,3949,33,2026-01-07,1,wrong size
+416,3973,8,2025-12-27,1,not as described
+417,3986,30,2026-01-08,1,changed mind
+418,3993,20,2026-01-11,2,damaged in transit
+419,4006,17,2025-12-23,1,changed mind
+420,4035,36,2025-12-24,1,damaged in transit
+421,4043,30,2025-12-30,1,wrong size
+422,4046,8,2026-01-02,1,not as described
+423,4053,23,2026-01-05,1,changed mind
+424,4070,5,2026-01-07,1,wrong size
+425,4073,19,2026-01-01,1,changed mind
+426,4075,32,2026-01-12,1,changed mind
+427,4086,27,2025-12-27,1,not as described
+428,4092,18,2025-12-27,1,changed mind
+429,4096,30,2026-01-03,1,changed mind
+430,4112,27,2026-01-10,1,damaged in transit
+431,4134,30,2026-01-19,2,damaged in transit
+432,4148,15,2026-01-10,1,wrong size
+433,4150,32,2026-01-05,1,wrong size
+434,4192,31,2026-01-14,1,wrong size
+435,4200,15,2026-01-24,1,wrong size
+436,4213,14,2026-01-20,1,changed mind
+437,4214,5,2026-01-26,1,damaged in transit
+438,4223,30,2026-01-12,2,damaged in transit
+439,4239,28,2026-01-11,1,damaged in transit
+440,4242,23,2026-01-22,1,damaged in transit
+441,4257,8,2026-01-08,1,changed mind
+442,4270,31,2026-02-01,1,changed mind
+443,4277,16,2026-01-21,3,not as described
+444,4290,26,2026-01-14,1,not as described

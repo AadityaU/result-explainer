@@ -1,0 +1,41 @@
+product_id,name,category,unit_price_cents
+1,Wireless Earbuds,Electronics,26399
+2,Bluetooth Speaker,Electronics,8799
+3,USB-C Hub,Electronics,16399
+4,Mechanical Keyboard,Electronics,37299
+5,HD Webcam,Electronics,47099
+6,Portable Charger,Electronics,27999
+7,Smart Plug,Electronics,29999
+8,Noise-Cancelling Headphones,Electronics,35699
+9,Ceramic Mug Set,Home,9499
+10,Linen Throw,Home,16699
+11,Cast Iron Skillet,Home,11399
+12,Desk Lamp,Home,17099
+13,Bamboo Cutting Board,Home,11499
+14,Scented Candle,Home,16499
+15,Wall Clock,Home,4399
+16,Storage Baskets,Home,10399
+17,Trail Backpack,Outdoor,19999
+18,Camping Stove,Outdoor,25399
+19,Insulated Bottle,Outdoor,10799
+20,Hammock,Outdoor,17199
+21,Headlamp,Outdoor,6299
+22,Trekking Poles,Outdoor,8799
+23,Rain Shell,Outdoor,17999
+24,Folding Chair,Outdoor,7999
+25,Merino Tee,Apparel,8099
+26,Denim Jacket,Apparel,9799
+27,Running Shoes,Apparel,4899
+28,Wool Beanie,Apparel,6599
+29,Rain Boots,Apparel,11499
+30,Fleece Hoodie,Apparel,5599
+31,Chino Pants,Apparel,14999
+32,Leather Belt,Apparel,11899
+33,The Copper Lantern,Books,3599
+34,Northbound,Books,4799
+35,Salt and Cedar,Books,1799
+36,The Last Orchard,Books,4599
+37,Glass Harbor,Books,3399
+38,Field Notes,Books,3699
+39,Paper Moons,Books,2099
+40,The Long Table,Books,4099

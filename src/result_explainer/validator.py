@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from decimal import Decimal
 
-from result_explainer.facts import FactTable
+from result_explainer.facts import Fact, FactTable
 from result_explainer.formatting import round_half_up
 
 # A number as people write it: optional $, digits with optional thousands separators
@@ -112,6 +112,8 @@ def validate(text: str, facts: FactTable) -> ValidationResult:
             detail = f'"{match.group(0)}" implies a calculation the query did not return'
             issues.append(Issue("unsupported_calculation", detail, sentence))
 
+        issues.extend(_mismatched_labels(sentence, cited, facts))
+
     if not facts.is_empty and not cited_any:
         issues.append(Issue("no_citations", "the explanation does not cite any returned metric"))
     return ValidationResult(issues)
@@ -138,3 +140,21 @@ def _strip_labels(sentence: str, facts: FactTable) -> str:
         if not label.isdigit():
             sentence = sentence.replace(label, " ")
     return sentence
+
+
+def _mismatched_labels(sentence: str, cited: list[Fact], facts: FactTable) -> list[Issue]:
+    """A sentence that cites row facts may only name rows it cites.
+
+    Catches misattribution such as "North peaked at $297,743.54 [r2.net_revenue]" when
+    row 2 is East: the number is real, but it belongs to a different row.
+    """
+    cited_rows = {fact.row for fact in cited if fact.row is not None}
+    if not cited_rows:
+        return []
+    allowed = {fact.display for row in cited_rows for fact in facts.row(row) if fact.kind == "label"}
+    issues = []
+    for label in sorted(facts.labels() - allowed):
+        if not label.isdigit() and re.search(rf"(?<!\w){re.escape(label)}(?!\w)", sentence):
+            detail = f'"{label}" is named, but none of the facts cited in this sentence are for it'
+            issues.append(Issue("mismatched_label", detail, sentence))
+    return issues

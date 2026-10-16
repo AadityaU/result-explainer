@@ -7,7 +7,7 @@ from result_explainer import cli
 def no_llm_config(monkeypatch):
     """Ignore any local .env so tests behave the same on every machine."""
     monkeypatch.setattr(cli, "load_dotenv", lambda *args, **kwargs: None)
-    for name in ("LLM_BASE_URL", "LLM_MODEL", "LLM_API_KEY", "LLM_TIMEOUT_SECONDS"):
+    for name in ("LLM_API_KEY", "LLM_BASE_URL", "LLM_DRAFT_MODEL", "LLM_RETRY_MODEL", "LLM_TIMEOUT_SECONDS"):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -70,7 +70,7 @@ def test_empty_result_is_explained_without_a_model(capsys, db_path):
 def test_llm_without_config_is_a_clear_error(capsys, db_path):
     code, _, err = run(capsys, "ask", "q01", "--explainer", "llm", "--db", str(db_path))
     assert code == 2
-    assert "LLM_BASE_URL" in err
+    assert "LLM_API_KEY" in err
 
 
 def test_unknown_question_is_a_clear_error(capsys, db_path):
@@ -85,10 +85,10 @@ def test_missing_database_says_how_to_build_it(capsys, tmp_path):
     assert "build-db" in err
 
 
-def test_evaluate_without_a_model_is_a_clear_error(capsys, db_path):
+def test_evaluate_without_a_key_is_a_clear_error(capsys, db_path):
     code, _, err = run(capsys, "evaluate", "--db", str(db_path))
     assert code == 2
-    assert "No model configured" in err
+    assert "LLM_API_KEY" in err
 
 
 def test_check_passes_on_the_sample_data(capsys, db_path):

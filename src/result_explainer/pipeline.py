@@ -1,14 +1,20 @@
 """Question -> SQL -> facts -> explainer -> validator, with one retry and a safe fallback.
 
+An answer gets one attempt from each explainer in the list it is given, in order. With a
+language model configured the list is [draft model, retry model]: the fast model writes the
+first draft, and the stronger model is only called, with the validator's feedback, when the
+draft is rejected (see ``explainers/llm.py``).
+
 Statuses:
-    empty     the query returned no rows; the model is never called
-    grounded  the explainer's text passed every grounding check
+    empty     the query returned no rows; no explainer is called
+    grounded  an explainer's text passed every grounding check
     template  the deterministic template was asked for directly
-    fallback  the explainer failed or was rejected; the template text is shown instead
+    fallback  every attempt failed or was rejected; the template text is shown instead
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,6 +30,7 @@ MAX_ATTEMPTS = 2
 
 @dataclass(frozen=True)
 class Attempt:
+    explainer: str       # who wrote this attempt
     text: str | None     # None when the explainer raised instead of answering
     issues: list[Issue]  # validation issues, or the explainer error
 
@@ -44,34 +51,38 @@ class Explanation:
         return list(dict.fromkeys(citations(self.text)))
 
 
+def with_retry(explainer: Explainer) -> list[Explainer]:
+    """The same explainer for every attempt."""
+    return [explainer] * MAX_ATTEMPTS
+
+
 def explain_question(
-    question: Question, explainer: Explainer, db_path: Path = DEFAULT_DB
+    question: Question, explainers: Sequence[Explainer], db_path: Path = DEFAULT_DB
 ) -> Explanation:
     facts = build_facts(question, run_question(question, db_path))
-    return explain_facts(facts, explainer)
+    return explain_facts(facts, explainers)
 
 
-def explain_facts(
-    facts: FactTable, explainer: Explainer, max_attempts: int = MAX_ATTEMPTS
-) -> Explanation:
+def explain_facts(facts: FactTable, explainers: Sequence[Explainer]) -> Explanation:
     template = TemplateExplainer()
     if facts.is_empty:
         # Nothing to explain: a model given no data can only make something up.
         return Explanation(facts, template.explain(facts), "empty", template.name, [])
-    if isinstance(explainer, TemplateExplainer):
+    if isinstance(explainers[0], TemplateExplainer):
         return Explanation(facts, template.explain(facts), "template", template.name, [])
 
     attempts: list[Attempt] = []
     feedback: list[str] | None = None
-    for _ in range(max_attempts):
+    for position, explainer in enumerate(explainers):
         try:
             text = explainer.explain(facts, feedback)
         except ExplainerError as error:
-            # Configuration and network problems don't fix themselves on a retry.
-            attempts.append(Attempt(None, [Issue("explainer_error", str(error))]))
-            break
+            attempts.append(Attempt(explainer.name, None, [Issue("explainer_error", str(error))]))
+            if all(later is explainer for later in explainers[position + 1:]):
+                break  # asking the same explainer again won't fix a network or config error
+            continue
         result = validate(text, facts)
-        attempts.append(Attempt(text, result.issues))
+        attempts.append(Attempt(explainer.name, text, result.issues))
         if result.ok:
             return Explanation(facts, text, "grounded", explainer.name, attempts)
         feedback = result.messages()

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from pathlib import Path
 
@@ -11,16 +10,16 @@ from dotenv import load_dotenv
 
 from result_explainer import __version__
 from result_explainer.db import build_database
+from result_explainer.evaluate import evaluate, evaluation_setups, render_report, summarize
+from result_explainer.evaluate import render_table as render_eval_table
 from result_explainer.explainers.base import Explainer, ExplainerError
 from result_explainer.explainers.faulty import FaultyExplainer
-from result_explainer.evaluate import evaluate, render_report, summarize
-from result_explainer.evaluate import render_table as render_eval_table
-from result_explainer.explainers.llm import LLMExplainer, LLMSettings, configured_models
+from result_explainer.explainers.llm import LLMSettings, llm_configured, routed_explainers
 from result_explainer.explainers.template import TemplateExplainer
+from result_explainer.facts import build_facts
 from result_explainer.generate import SEED, generate, write_csv
 from result_explainer.paths import DATA_DIR, DEFAULT_DB, ROOT
-from result_explainer.facts import build_facts
-from result_explainer.pipeline import explain_question
+from result_explainer.pipeline import explain_question, with_retry
 from result_explainer.questions import QuestionError, get_question, load_questions, run_question
 from result_explainer.render import render_explanation
 from result_explainer.validator import validate
@@ -50,40 +49,39 @@ def cmd_list(args: argparse.Namespace) -> int:
 EXPLAINERS = ("auto", "template", "llm", "faulty")
 
 
-def make_explainer(name: str, model: str | None = None) -> Explainer:
-    """'auto' uses the LLM when LLM_BASE_URL is configured, otherwise the template.
+def make_explainers(mode: str) -> list[Explainer]:
+    """The explainer for each attempt.
 
-    `model` overrides LLM_MODEL for this explainer only.
+    'auto' uses the language model when LLM_API_KEY (or a custom endpoint) is set, otherwise
+    the template. Which model writes the draft and which handles a rejected draft is decided
+    in explainers/llm.py, not by the user.
     """
-    if name == "auto":
-        name = "llm" if os.environ.get("LLM_BASE_URL", "").strip() else "template"
-    if name == "template":
-        return TemplateExplainer()
-    if name == "faulty":
-        return FaultyExplainer()
-    return LLMExplainer(LLMSettings.from_env().with_model(model))
+    if mode == "auto":
+        mode = "llm" if llm_configured() else "template"
+    if mode == "template":
+        return [TemplateExplainer()]
+    if mode == "faulty":
+        return with_retry(FaultyExplainer())
+    return routed_explainers(LLMSettings.from_env())
 
 
 def cmd_ask(args: argparse.Namespace) -> int:
     question = get_question(args.question_id)
-    explanation = explain_question(question, make_explainer(args.explainer, args.model), args.db)
+    explanation = explain_question(question, make_explainers(args.explainer), args.db)
     print(render_explanation(explanation, show_sql=args.show_sql, show_facts=args.show_facts))
     return 0
 
 
 def cmd_evaluate(args: argparse.Namespace) -> int:
-    models = args.model or configured_models()
-    if not models:
-        raise ExplainerError("No model configured: set LLM_MODEL or LLM_MODELS, or pass --model.")
     questions = list(load_questions().values())
     results = {}
-    for model in models:
-        print(f"Evaluating {model} on {len(questions)} questions...", flush=True)
-        rows = evaluate(make_explainer("llm", model), questions, args.db)
+    for label, explainers in evaluation_setups(LLMSettings.from_env()).items():
+        print(f"Evaluating {label} on {len(questions)} questions...", flush=True)
+        rows = evaluate(explainers, questions, args.db)
         print(render_eval_table(rows))
         print(summarize(rows))
         print()
-        results[model] = rows
+        results[label] = rows
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(render_report(results), encoding="utf-8")
@@ -141,10 +139,9 @@ def build_parser() -> argparse.ArgumentParser:
     ask_cmd.add_argument("question_id", help="question id, e.g. q03 (see `list`)")
     ask_cmd.add_argument(
         "--explainer", choices=EXPLAINERS, default="auto",
-        help="auto (default): llm if LLM_BASE_URL is set, else template; "
+        help="auto (default): the language model when LLM_API_KEY is set, else the template; "
              "faulty: deliberately invents numbers to show the grounding guard",
     )
-    ask_cmd.add_argument("--model", help="use this model instead of LLM_MODEL, e.g. google/gemini-4-argon")
     ask_cmd.add_argument("--show-sql", action="store_true", help="print the approved SQL")
     ask_cmd.add_argument("--show-facts", action="store_true", help="print every fact and its reference id")
     add_db_option(ask_cmd)
@@ -157,11 +154,9 @@ def build_parser() -> argparse.ArgumentParser:
     check_cmd.set_defaults(handler=cmd_check)
 
     evaluate_cmd = commands.add_parser(
-        "evaluate", help="run every question through the LLM and report how often it stays grounded"
-    )
-    evaluate_cmd.add_argument(
-        "--model", action="append",
-        help="model to evaluate (repeatable; default: LLM_MODELS, else LLM_MODEL)",
+        "evaluate",
+        help="run every question through each model alone and through the routed pair, "
+             "and report how often each stays grounded",
     )
     evaluate_cmd.add_argument("--report", type=Path, help="also write a markdown report to this path")
     add_db_option(evaluate_cmd)

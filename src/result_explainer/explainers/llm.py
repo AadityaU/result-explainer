@@ -1,15 +1,24 @@
-"""The only module that talks to a language model: any OpenAI-compatible chat endpoint."""
+"""The only module that talks to a language model: any OpenAI-compatible chat endpoint.
+
+Models are chosen automatically. A fast, cheap model writes the first draft; a stronger model
+is only called when that draft fails the grounding checks, and it gets the validator's feedback.
+The defaults come from running ``python -m result_explainer evaluate`` (docs/model-evaluation.md).
+"""
 
 from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 
 import httpx
 
 from result_explainer.explainers.base import ExplainerError
 from result_explainer.facts import FactTable
+
+DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
+DRAFT_MODEL = "z-ai/glm-5.3-flash"
+RETRY_MODEL = "google/gemini-4-argon"
 
 SYSTEM_PROMPT = """\
 You explain SQL query results to business readers in plain language.
@@ -30,7 +39,7 @@ Rules:
 
 
 def build_messages(facts: FactTable, feedback: list[str] | None = None) -> list[dict[str, str]]:
-    """The chat messages for one attempt; feedback carries the previous attempt's issues."""
+    """The chat messages for one attempt; feedback carries a rejected draft's issues."""
     question = facts.question
     lines = [
         f"Question: {question.title}",
@@ -51,7 +60,7 @@ def build_messages(facts: FactTable, feedback: list[str] | None = None) -> list[
         problems = "\n".join(f"- {message}" for message in feedback)
         messages.append({
             "role": "user",
-            "content": f"Your previous answer failed these checks:\n{problems}\n"
+            "content": f"A draft answer failed these checks:\n{problems}\n"
                        "Write a new answer that follows every rule.",
         })
     return messages
@@ -59,51 +68,55 @@ def build_messages(facts: FactTable, feedback: list[str] | None = None) -> list[
 
 @dataclass(frozen=True)
 class LLMSettings:
-    base_url: str  # e.g. http://localhost:11434/v1 for Ollama
-    model: str
     api_key: str | None = field(default=None, repr=False)  # never printed
-    timeout_seconds: float = 60.0
+    base_url: str = DEFAULT_BASE_URL
+    draft_model: str = DRAFT_MODEL
+    retry_model: str = RETRY_MODEL
+    timeout_seconds: float = 120.0
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> LLMSettings:
-        """Read LLM_BASE_URL, LLM_MODEL, LLM_API_KEY and LLM_TIMEOUT_SECONDS.
+        """Only LLM_API_KEY is needed for OpenRouter.
 
-        The key is optional because local servers such as Ollama don't need one.
+        LLM_BASE_URL, LLM_DRAFT_MODEL, LLM_RETRY_MODEL and LLM_TIMEOUT_SECONDS are optional
+        overrides, e.g. for a local Ollama server, which needs no key.
         """
         env = os.environ if env is None else env
-        base_url = env.get("LLM_BASE_URL", "").strip()
-        model = env.get("LLM_MODEL", "").strip()
-        if not base_url or not model:
+
+        def setting(name: str, default: str) -> str:
+            return env.get(name, "").strip() or default
+
+        api_key = env.get("LLM_API_KEY", "").strip() or None
+        base_url = setting("LLM_BASE_URL", DEFAULT_BASE_URL)
+        if api_key is None and base_url == DEFAULT_BASE_URL:
             raise ExplainerError(
-                "LLM_BASE_URL and LLM_MODEL must be set to use the LLM explainer "
-                "(copy .env.example to .env and fill it in)."
+                "LLM_API_KEY is not set. Copy .env.example to .env and add your OpenRouter key."
             )
         timeout = env.get("LLM_TIMEOUT_SECONDS", "").strip()
         try:
-            timeout_seconds = float(timeout) if timeout else 60.0
+            timeout_seconds = float(timeout) if timeout else cls.timeout_seconds
         except ValueError:
             raise ExplainerError(f"LLM_TIMEOUT_SECONDS must be a number, got {timeout!r}") from None
-        return cls(base_url, model, env.get("LLM_API_KEY", "").strip() or None, timeout_seconds)
+        return cls(
+            api_key,
+            base_url,
+            setting("LLM_DRAFT_MODEL", DRAFT_MODEL),
+            setting("LLM_RETRY_MODEL", RETRY_MODEL),
+            timeout_seconds,
+        )
 
-    def with_model(self, model: str | None) -> LLMSettings:
-        """The same endpoint and key with a different model (None keeps the current one)."""
-        return replace(self, model=model.strip()) if model and model.strip() else self
 
-
-def configured_models(env: Mapping[str, str] | None = None) -> list[str]:
-    """Models offered for selection: LLM_MODELS (comma-separated), else LLM_MODEL."""
+def llm_configured(env: Mapping[str, str] | None = None) -> bool:
+    """True when a key or a custom endpoint is set, so explanations should use the model."""
     env = os.environ if env is None else env
-    listed = [m.strip() for m in env.get("LLM_MODELS", "").split(",") if m.strip()]
-    default = env.get("LLM_MODEL", "").strip()
-    if default and default not in listed:
-        listed.insert(0, default)
-    return listed
+    return bool(env.get("LLM_API_KEY", "").strip() or env.get("LLM_BASE_URL", "").strip())
 
 
 class LLMExplainer:
-    def __init__(self, settings: LLMSettings, client: httpx.Client | None = None) -> None:
+    def __init__(self, settings: LLMSettings, model: str, client: httpx.Client | None = None) -> None:
         self.settings = settings
-        self.name = f"llm ({settings.model})"
+        self.model = model
+        self.name = f"llm ({model})"
         self._client = client or httpx.Client(timeout=settings.timeout_seconds)
 
     def explain(self, facts: FactTable, feedback: list[str] | None = None) -> str:
@@ -111,7 +124,7 @@ class LLMExplainer:
         if self.settings.api_key:
             headers["Authorization"] = f"Bearer {self.settings.api_key}"
         payload = {
-            "model": self.settings.model,
+            "model": self.model,
             "messages": build_messages(facts, feedback),
             "temperature": 0,
         }
@@ -131,3 +144,12 @@ class LLMExplainer:
         if not isinstance(content, str) or not content.strip():
             raise ExplainerError("LLM endpoint returned an empty answer")
         return content.strip()
+
+
+def routed_explainers(settings: LLMSettings, client: httpx.Client | None = None) -> list[LLMExplainer]:
+    """[draft, retry]: the fast model drafts, the stronger one only handles rejected drafts."""
+    client = client or httpx.Client(timeout=settings.timeout_seconds)
+    draft = LLMExplainer(settings, settings.draft_model, client)
+    if settings.retry_model == settings.draft_model:
+        return [draft, draft]
+    return [draft, LLMExplainer(settings, settings.retry_model, client)]

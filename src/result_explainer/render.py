@@ -54,7 +54,7 @@ def render_explanation(explanation: Explanation, show_sql: bool = False, show_fa
         parts.append("Rejected attempts")
         for number, attempt in enumerate(rejected, start=1):
             shown = attempt.text if attempt.text is not None else "(no answer)"
-            parts.append(_wrap(f"{number}. {shown}", indent="  ", subsequent="     "))
+            parts.append(_wrap(f"{number}. [{attempt.explainer}] {shown}", indent="  ", subsequent="     "))
             parts += [
                 _wrap(f"- {issue.kind}: {issue.detail}", indent="     ", subsequent="       ")
                 for issue in attempt.issues

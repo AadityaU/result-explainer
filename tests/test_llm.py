@@ -5,18 +5,22 @@ import pytest
 
 from result_explainer.explainers.base import ExplainerError
 from result_explainer.explainers.llm import (
+    DEFAULT_BASE_URL,
+    DRAFT_MODEL,
+    RETRY_MODEL,
     SYSTEM_PROMPT,
     LLMExplainer,
     LLMSettings,
     build_messages,
-    configured_models,
+    llm_configured,
+    routed_explainers,
 )
 from result_explainer.facts import build_facts
 from result_explainer.questions import QueryResult, load_questions
 
 Q06 = load_questions()["q06"]
 FACTS = build_facts(Q06, QueryResult(list(Q06.columns), [(1722, 956, 55.5)]))
-SETTINGS = LLMSettings("http://llm.test/v1", "test-model", api_key="sk-test")
+SETTINGS = LLMSettings(api_key="sk-test", base_url="http://llm.test/v1")
 
 
 def explainer_returning(response, seen=None):
@@ -24,7 +28,7 @@ def explainer_returning(response, seen=None):
         if seen is not None:
             seen.append(request)
         return response(request) if callable(response) else response
-    return LLMExplainer(SETTINGS, httpx.Client(transport=httpx.MockTransport(handler)))
+    return LLMExplainer(SETTINGS, "test-model", httpx.Client(transport=httpx.MockTransport(handler)))
 
 
 def chat_response(content):
@@ -48,9 +52,9 @@ def test_sends_facts_to_the_chat_completions_endpoint():
 
 def test_no_auth_header_without_a_key():
     seen = []
-    settings = LLMSettings("http://localhost:11434/v1", "llama")
+    settings = LLMSettings(base_url="http://localhost:11434/v1")
     client = httpx.Client(transport=httpx.MockTransport(lambda r: seen.append(r) or chat_response("ok")))
-    LLMExplainer(settings, client).explain(FACTS)
+    LLMExplainer(settings, "llama", client).explain(FACTS)
     assert "Authorization" not in seen[0].headers
 
 
@@ -82,38 +86,48 @@ def test_unreachable_endpoint_raises_explainer_error():
         explainer_returning(refuse).explain(FACTS)
 
 
-def test_settings_from_env():
-    settings = LLMSettings.from_env({
-        "LLM_BASE_URL": "https://api.example.com/v1",
-        "LLM_MODEL": "some-model",
-        "LLM_API_KEY": "sk-secret",
-        "LLM_TIMEOUT_SECONDS": "15",
-    })
-    assert (settings.base_url, settings.model, settings.timeout_seconds) == (
-        "https://api.example.com/v1", "some-model", 15.0,
+def test_only_the_api_key_is_required():
+    settings = LLMSettings.from_env({"LLM_API_KEY": "sk-secret"})
+    assert (settings.base_url, settings.draft_model, settings.retry_model) == (
+        DEFAULT_BASE_URL, DRAFT_MODEL, RETRY_MODEL,
     )
     assert "sk-secret" not in repr(settings)
 
 
-def test_model_can_be_overridden_per_request():
-    settings = SETTINGS.with_model("google/gemini-4-argon")
-    assert (settings.model, settings.api_key) == ("google/gemini-4-argon", "sk-test")
-    assert SETTINGS.with_model(None) is SETTINGS
-    assert LLMExplainer(settings).name == "llm (google/gemini-4-argon)"
+def test_overrides_allow_a_local_server_without_a_key():
+    settings = LLMSettings.from_env({
+        "LLM_BASE_URL": "http://localhost:11434/v1",
+        "LLM_DRAFT_MODEL": "llama",
+        "LLM_RETRY_MODEL": "qwen",
+        "LLM_TIMEOUT_SECONDS": "15",
+    })
+    assert (settings.api_key, settings.draft_model, settings.retry_model, settings.timeout_seconds) == (
+        None, "llama", "qwen", 15.0,
+    )
 
 
-def test_configured_models_lists_the_default_first():
-    env = {"LLM_MODEL": "a/one", "LLM_MODELS": "b/two, a/one ,c/three"}
-    assert configured_models(env) == ["b/two", "a/one", "c/three"]
-    assert configured_models({"LLM_MODEL": "a/one", "LLM_MODELS": "b/two"}) == ["a/one", "b/two"]
-    assert configured_models({}) == []
-
-
-def test_settings_require_url_and_model():
-    with pytest.raises(ExplainerError, match="LLM_BASE_URL and LLM_MODEL"):
-        LLMSettings.from_env({"LLM_API_KEY": "sk-secret"})
+def test_openrouter_without_a_key_is_a_clear_error():
+    with pytest.raises(ExplainerError, match="LLM_API_KEY"):
+        LLMSettings.from_env({})
 
 
 def test_settings_reject_a_bad_timeout():
     with pytest.raises(ExplainerError, match="LLM_TIMEOUT_SECONDS"):
-        LLMSettings.from_env({"LLM_BASE_URL": "http://x", "LLM_MODEL": "m", "LLM_TIMEOUT_SECONDS": "soon"})
+        LLMSettings.from_env({"LLM_API_KEY": "k", "LLM_TIMEOUT_SECONDS": "soon"})
+
+
+def test_routing_drafts_with_one_model_and_retries_with_the_other():
+    draft, retry = routed_explainers(SETTINGS)
+    assert (draft.name, retry.name) == (f"llm ({DRAFT_MODEL})", f"llm ({RETRY_MODEL})")
+    assert draft._client is retry._client
+
+
+def test_routing_with_one_model_reuses_it_for_the_retry():
+    draft, retry = routed_explainers(LLMSettings(api_key="k", draft_model="m", retry_model="m"))
+    assert draft is retry
+
+
+def test_llm_is_used_when_a_key_or_endpoint_is_configured():
+    assert llm_configured({"LLM_API_KEY": "k"})
+    assert llm_configured({"LLM_BASE_URL": "http://localhost:11434/v1"})
+    assert not llm_configured({})

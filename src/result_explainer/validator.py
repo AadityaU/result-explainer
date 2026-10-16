@@ -76,13 +76,54 @@ def validate(text: str, facts: FactTable) -> ValidationResult:
 
     issues: list[Issue] = []
     cited_any = False
+    context = _context_numbers(facts)
+    known_values = [fact.value for fact in facts.facts.values() if fact.value is not None]
+
     for sentence in split_sentences(text):
+        cited = []
         for ref in CITATION.findall(sentence):
             if ref in facts.facts:
-                cited_any = True
+                cited.append(facts.facts[ref])
             else:
                 issues.append(Issue("unknown_reference", f"[{ref}] is not in the result", sentence))
+        cited_any = cited_any or bool(cited)
+
+        plain = _strip_labels(CITATION.sub(" ", sentence), facts)
+        for mention in extract_numbers(plain):
+            if any(fact.value is not None and mention.matches(fact.value) for fact in cited):
+                continue
+            if mention.scale == 1 and mention.decimals == 0 and mention.written in context:
+                continue
+            if any(mention.matches(value) for value in known_values):
+                detail = f"{mention.text} is in the result, but no fact cited in this sentence holds it"
+                issues.append(Issue("uncited_number", detail, sentence))
+            else:
+                detail = f"{mention.text} does not appear anywhere in the result"
+                issues.append(Issue("invented_number", detail, sentence))
 
     if not facts.is_empty and not cited_any:
         issues.append(Issue("no_citations", "the explanation does not cite any returned metric"))
     return ValidationResult(issues)
+
+
+YEAR = re.compile(r"(?<!\d)(?:19|20)\d{2}(?!\d)")
+
+
+def _context_numbers(facts: FactTable) -> set[Decimal]:
+    """Numbers that need no citation: those in the question itself and years in labels."""
+    question = facts.question
+    numbers = {m.written for m in extract_numbers(f"{question.title} {question.question}")}
+    for label in facts.labels():
+        numbers.update(Decimal(year) for year in YEAR.findall(label))
+    return numbers
+
+
+def _strip_labels(sentence: str, facts: FactTable) -> str:
+    """Remove label values (months, product names) so their digits aren't read as numbers.
+
+    Integer labels such as order ids stay: they must be cited like any other number.
+    """
+    for label in sorted(facts.labels(), key=len, reverse=True):
+        if not label.isdigit():
+            sentence = sentence.replace(label, " ")
+    return sentence

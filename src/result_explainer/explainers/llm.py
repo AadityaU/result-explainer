@@ -20,11 +20,13 @@ Rules:
 2. Every sentence that contains a number must cite the fact it came from, using the
    fact id in square brackets right after the number, for example [r2.net_revenue].
 3. Copy numbers exactly as they are displayed in the facts.
-4. A fact shown as n/a has no value. Say it is not available; never replace it with a number.
-5. Do not use words like doubled, tripled, twice or "x times". Use higher, lower,
+4. When a sentence names a row (a month, region, product, category or channel), cite a
+   fact from that same row in that sentence.
+5. A fact shown as n/a has no value. Say it is not available; never replace it with a number.
+6. Do not use words like doubled, tripled, twice or "x times". Use higher, lower,
    largest or smallest instead.
-6. Write 3 to 5 short sentences of plain prose. No headings, lists or tables.
-7. If the facts cannot answer part of the question, say so instead of guessing."""
+7. Write 3 to 5 short sentences of plain prose. No headings, lists or tables.
+8. If the facts cannot answer part of the question, say so instead of guessing."""
 
 
 def build_messages(facts: FactTable, feedback: list[str] | None = None) -> list[dict[str, str]]:

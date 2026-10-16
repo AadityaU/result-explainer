@@ -1,4 +1,4 @@
-"""Command-line interface: generate-data | build-db | list | ask | check."""
+"""Command-line interface: generate-data | build-db | list | ask | check | evaluate."""
 
 from __future__ import annotations
 
@@ -13,7 +13,9 @@ from result_explainer import __version__
 from result_explainer.db import build_database
 from result_explainer.explainers.base import Explainer, ExplainerError
 from result_explainer.explainers.faulty import FaultyExplainer
-from result_explainer.explainers.llm import LLMExplainer, LLMSettings
+from result_explainer.evaluate import evaluate, render_report, summarize
+from result_explainer.evaluate import render_table as render_eval_table
+from result_explainer.explainers.llm import LLMExplainer, LLMSettings, configured_models
 from result_explainer.explainers.template import TemplateExplainer
 from result_explainer.generate import SEED, generate, write_csv
 from result_explainer.paths import DATA_DIR, DEFAULT_DB, ROOT
@@ -66,6 +68,26 @@ def cmd_ask(args: argparse.Namespace) -> int:
     question = get_question(args.question_id)
     explanation = explain_question(question, make_explainer(args.explainer, args.model), args.db)
     print(render_explanation(explanation, show_sql=args.show_sql, show_facts=args.show_facts))
+    return 0
+
+
+def cmd_evaluate(args: argparse.Namespace) -> int:
+    models = args.model or configured_models()
+    if not models:
+        raise ExplainerError("No model configured: set LLM_MODEL or LLM_MODELS, or pass --model.")
+    questions = list(load_questions().values())
+    results = {}
+    for model in models:
+        print(f"Evaluating {model} on {len(questions)} questions...", flush=True)
+        rows = evaluate(make_explainer("llm", model), questions, args.db)
+        print(render_eval_table(rows))
+        print(summarize(rows))
+        print()
+        results[model] = rows
+    if args.report:
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(render_report(results), encoding="utf-8")
+        print(f"wrote {args.report}")
     return 0
 
 
@@ -133,6 +155,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_db_option(check_cmd)
     check_cmd.set_defaults(handler=cmd_check)
+
+    evaluate_cmd = commands.add_parser(
+        "evaluate", help="run every question through the LLM and report how often it stays grounded"
+    )
+    evaluate_cmd.add_argument(
+        "--model", action="append",
+        help="model to evaluate (repeatable; default: LLM_MODELS, else LLM_MODEL)",
+    )
+    evaluate_cmd.add_argument("--report", type=Path, help="also write a markdown report to this path")
+    add_db_option(evaluate_cmd)
+    evaluate_cmd.set_defaults(handler=cmd_evaluate)
     return parser
 
 

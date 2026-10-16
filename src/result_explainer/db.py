@@ -1,4 +1,4 @@
-"""Build the SQLite database from the schema and the CSV sample data."""
+"""Build the SQLite database from the schema and CSVs, and open it read-only."""
 
 from __future__ import annotations
 
@@ -36,3 +36,12 @@ def _load_csv(conn: sqlite3.Connection, table: str, path: Path) -> int:
     placeholders = ", ".join("?" for _ in header)
     conn.executemany(f"INSERT INTO {table} ({columns}) VALUES ({placeholders})", rows)
     return len(rows)
+
+
+def connect_read_only(db_path: Path = DEFAULT_DB) -> sqlite3.Connection:
+    """Open the database so that any write fails, whatever SQL is run."""
+    if not db_path.exists():
+        raise FileNotFoundError(
+            f"Database not found at {db_path}. Run `python -m result_explainer build-db` first."
+        )
+    return sqlite3.connect(f"{db_path.resolve().as_uri()}?mode=ro", uri=True)

@@ -7,6 +7,7 @@ are ISO-8601 text.
 
 from __future__ import annotations
 
+import calendar
 import random
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -108,3 +109,59 @@ def generate_products(rng: random.Random) -> list[Product]:
             price_cents = rng.randint(low, high) * 100 + 99
             products.append(Product(len(products) + 1, name, category, price_cents))
     return products
+
+
+# Orders placed per month: steady through the year, peaking for the holidays.
+MONTH_ORDERS = {
+    1: 280, 2: 260, 3: 315, 4: 330, 5: 350, 6: 330,
+    7: 315, 8: 330, 9: 350, 10: 385, 11: 505, 12: 560,
+}
+CHANNELS = {"web": 55, "mobile": 30, "marketplace": 15}
+CANCEL_RATE_PCT = 6
+SHIPPING_DAYS = (0, 2)
+# Days from shipping to delivery, by region. With at most 2 days to ship, no order
+# takes longer than 11 days, so the 14-day delivery promise is never missed.
+DELIVERY_DAYS = {"North": (2, 5), "South": (3, 6), "East": (2, 4), "West": (3, 7), "Central": (4, 9)}
+
+
+@dataclass(frozen=True)
+class Order:
+    order_id: int
+    customer_id: int
+    order_date: str
+    channel: str
+    status: str
+    ship_date: str | None
+    delivery_date: str | None
+
+
+def generate_orders(
+    rng: random.Random, customers: list[Customer], activity: dict[int, int]
+) -> list[Order]:
+    placed: list[tuple[date, Customer]] = []
+    for month, count in MONTH_ORDERS.items():
+        last_day = calendar.monthrange(YEAR, month)[1]
+        for _ in range(count):
+            order_date = date(YEAR, month, rng.randint(1, last_day))
+            # A customer can only order after signing up.
+            eligible = [c for c in customers if c.signup_date <= order_date.isoformat()]
+            weights = [activity[c.customer_id] for c in eligible]
+            placed.append((order_date, rng.choices(eligible, weights=weights)[0]))
+    placed.sort(key=lambda item: item[0])  # stable sort: same-day orders keep their order
+
+    orders = []
+    for order_id, (order_date, customer) in enumerate(placed, start=1):
+        channel = pick(rng, CHANNELS)
+        if rng.randint(1, 100) <= CANCEL_RATE_PCT:
+            orders.append(
+                Order(order_id, customer.customer_id, order_date.isoformat(), channel,
+                      "cancelled", None, None)
+            )
+            continue
+        ship_date = order_date + timedelta(days=rng.randint(*SHIPPING_DAYS))
+        delivery_date = ship_date + timedelta(days=rng.randint(*DELIVERY_DAYS[customer.region]))
+        orders.append(
+            Order(order_id, customer.customer_id, order_date.isoformat(), channel,
+                  "delivered", ship_date.isoformat(), delivery_date.isoformat())
+        )
+    return orders

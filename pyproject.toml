@@ -15,6 +15,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+ui = ["streamlit>=1.40"]
 
 [project.scripts]
 result-explainer = "result_explainer.cli:main"

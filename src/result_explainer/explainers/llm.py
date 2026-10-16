@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+
+import httpx
+
+from result_explainer.explainers.base import ExplainerError
 from result_explainer.facts import FactTable
 
 SYSTEM_PROMPT = """\
@@ -46,3 +51,45 @@ def build_messages(facts: FactTable, feedback: list[str] | None = None) -> list[
                        "Write a new answer that follows every rule.",
         })
     return messages
+
+
+@dataclass(frozen=True)
+class LLMSettings:
+    base_url: str  # e.g. http://localhost:11434/v1 for Ollama
+    model: str
+    api_key: str | None = field(default=None, repr=False)  # never printed
+    timeout_seconds: float = 60.0
+
+
+class LLMExplainer:
+    name = "llm"
+
+    def __init__(self, settings: LLMSettings, client: httpx.Client | None = None) -> None:
+        self.settings = settings
+        self._client = client or httpx.Client(timeout=settings.timeout_seconds)
+
+    def explain(self, facts: FactTable, feedback: list[str] | None = None) -> str:
+        headers = {}
+        if self.settings.api_key:
+            headers["Authorization"] = f"Bearer {self.settings.api_key}"
+        payload = {
+            "model": self.settings.model,
+            "messages": build_messages(facts, feedback),
+            "temperature": 0,
+        }
+        url = f"{self.settings.base_url.rstrip('/')}/chat/completions"
+        try:
+            response = self._client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            content = response.json()["choices"][0]["message"]["content"]
+        except httpx.HTTPStatusError as error:
+            raise ExplainerError(
+                f"LLM endpoint returned HTTP {error.response.status_code}"
+            ) from error
+        except httpx.HTTPError as error:
+            raise ExplainerError(f"Could not reach the LLM endpoint at {url}: {error}") from error
+        except (KeyError, IndexError, TypeError, ValueError) as error:
+            raise ExplainerError("LLM endpoint returned an unexpected response") from error
+        if not isinstance(content, str) or not content.strip():
+            raise ExplainerError("LLM endpoint returned an empty answer")
+        return content.strip()

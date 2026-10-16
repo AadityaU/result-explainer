@@ -1,8 +1,10 @@
-"""Command-line interface: generate-data | build-db | list | ask | check | evaluate."""
+"""Command-line interface: generate-data | build-db | list | ask | check | evaluate | dashboard."""
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -89,6 +91,14 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_dashboard(args: argparse.Namespace) -> int:
+    if importlib.util.find_spec("streamlit") is None:
+        print('error: the dashboard needs Streamlit. Install it with: pip install -e ".[ui]"', file=sys.stderr)
+        return 2
+    script = Path(__file__).with_name("dashboard.py")
+    return subprocess.call([sys.executable, "-m", "streamlit", "run", str(script)])
+
+
 def cmd_check(args: argparse.Namespace) -> int:
     """Run every approved question read-only, check its columns, and check that the
     template explanation passes the grounding validator."""
@@ -161,6 +171,9 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate_cmd.add_argument("--report", type=Path, help="also write a markdown report to this path")
     add_db_option(evaluate_cmd)
     evaluate_cmd.set_defaults(handler=cmd_evaluate)
+
+    dashboard_cmd = commands.add_parser("dashboard", help="open the Streamlit dashboard (needs the ui extra)")
+    dashboard_cmd.set_defaults(handler=cmd_dashboard)
     return parser
 
 

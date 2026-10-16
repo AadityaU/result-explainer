@@ -194,3 +194,38 @@ def generate_order_items(
                           product.unit_price_cents, pick(rng, discounts))
             )
     return items
+
+
+RETURN_REASONS = ("wrong size", "damaged in transit", "not as described", "changed mind")
+RETURN_WINDOW_DAYS = (3, 25)
+
+
+@dataclass(frozen=True)
+class Return:
+    return_id: int
+    order_id: int
+    product_id: int
+    return_date: str
+    quantity: int
+    reason: str
+
+
+def generate_returns(
+    rng: random.Random, orders: list[Order], items: list[OrderItem], products: list[Product]
+) -> list[Return]:
+    """Only delivered lines can be returned; the chance depends on the product category."""
+    delivered_on = {o.order_id: o.delivery_date for o in orders if o.status == "delivered"}
+    category_of = {p.product_id: p.category for p in products}
+    returns = []
+    for item in items:
+        delivery_date = delivered_on.get(item.order_id)
+        if delivery_date is None:
+            continue
+        if rng.randint(1, 100) > CATEGORIES[category_of[item.product_id]].return_rate_pct:
+            continue
+        return_date = date.fromisoformat(delivery_date) + timedelta(days=rng.randint(*RETURN_WINDOW_DAYS))
+        returns.append(
+            Return(len(returns) + 1, item.order_id, item.product_id, return_date.isoformat(),
+                   rng.randint(1, item.quantity), rng.choice(RETURN_REASONS))
+        )
+    return returns

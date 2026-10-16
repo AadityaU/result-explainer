@@ -79,6 +79,13 @@ def test_bad_responses_raise_explainer_error(response):
         explainer_returning(response).explain(FACTS)
 
 
+def test_a_slow_answer_hits_the_total_deadline():
+    settings = LLMSettings(api_key="sk-test", base_url="http://llm.test/v1", timeout_seconds=0)
+    client = httpx.Client(transport=httpx.MockTransport(lambda r: chat_response("late")))
+    with pytest.raises(ExplainerError, match="did not answer within 0s"):
+        LLMExplainer(settings, "slow-model", client).explain(FACTS)
+
+
 def test_unreachable_endpoint_raises_explainer_error():
     def refuse(request):
         raise httpx.ConnectError("connection refused", request=request)

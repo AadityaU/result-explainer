@@ -7,7 +7,9 @@ The defaults come from running ``python -m result_explainer evaluate`` (docs/mod
 
 from __future__ import annotations
 
+import json
 import os
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
@@ -72,7 +74,7 @@ class LLMSettings:
     base_url: str = DEFAULT_BASE_URL
     draft_model: str = DRAFT_MODEL
     retry_model: str = RETRY_MODEL
-    timeout_seconds: float = 120.0
+    timeout_seconds: float = 45.0  # per answer, start to finish
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> LLMSettings:
@@ -129,10 +131,20 @@ class LLMExplainer:
             "temperature": 0,
         }
         url = f"{self.settings.base_url.rstrip('/')}/chat/completions"
+        # httpx's timeout only limits the gap between bytes, and OpenRouter keeps a slow request
+        # alive with filler bytes, so the whole answer gets its own deadline.
+        deadline = time.monotonic() + self.settings.timeout_seconds
         try:
-            response = self._client.post(url, json=payload, headers=headers)
-            response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
+            with self._client.stream("POST", url, json=payload, headers=headers) as response:
+                response.raise_for_status()
+                body = bytearray()
+                for chunk in response.iter_bytes():
+                    if time.monotonic() > deadline:
+                        raise ExplainerError(
+                            f"{self.model} did not answer within {self.settings.timeout_seconds:g}s"
+                        )
+                    body.extend(chunk)
+            content = json.loads(body)["choices"][0]["message"]["content"]
         except httpx.HTTPStatusError as error:
             raise ExplainerError(
                 f"LLM endpoint returned HTTP {error.response.status_code}"

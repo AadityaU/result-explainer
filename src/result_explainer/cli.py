@@ -1,4 +1,4 @@
-"""Command-line interface."""
+"""Command-line interface: generate-data | build-db | list | ask | check."""
 
 from __future__ import annotations
 
@@ -17,9 +17,11 @@ from result_explainer.explainers.llm import LLMExplainer, LLMSettings
 from result_explainer.explainers.template import TemplateExplainer
 from result_explainer.generate import SEED, generate, write_csv
 from result_explainer.paths import DATA_DIR, DEFAULT_DB, ROOT
+from result_explainer.facts import build_facts
 from result_explainer.pipeline import explain_question
-from result_explainer.questions import get_question, load_questions
+from result_explainer.questions import QuestionError, get_question, load_questions, run_question
 from result_explainer.render import render_explanation
+from result_explainer.validator import validate
 
 
 def cmd_generate_data(args: argparse.Namespace) -> int:
@@ -64,6 +66,31 @@ def cmd_ask(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_check(args: argparse.Namespace) -> int:
+    """Run every approved question read-only, check its columns, and check that the
+    template explanation passes the grounding validator."""
+    template = TemplateExplainer()
+    questions = load_questions()
+    failed = 0
+    for question in questions.values():
+        try:
+            facts = build_facts(question, run_question(question, args.db))
+            problems = validate(template.explain(facts), facts).messages()
+            rows = f"{facts.row_count:>3} rows"
+        except QuestionError as error:
+            problems, rows = [str(error)], "  - rows"
+        print(f"{question.id}  {'ok' if not problems else 'FAIL':<4}  {rows}  {question.title}")
+        for problem in problems:
+            print(f"      {problem}")
+        failed += bool(problems)
+    if failed:
+        print(f"{failed} of {len(questions)} approved questions failed.")
+        return 1
+    print(f"All {len(questions)} approved questions run, return their declared columns "
+          "and produce grounded explanations.")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="result-explainer",
@@ -96,6 +123,12 @@ def build_parser() -> argparse.ArgumentParser:
     ask_cmd.add_argument("--show-facts", action="store_true", help="print every fact and its reference id")
     add_db_option(ask_cmd)
     ask_cmd.set_defaults(handler=cmd_ask)
+
+    check_cmd = commands.add_parser(
+        "check", help="validate every approved question (columns + grounded template output)"
+    )
+    add_db_option(check_cmd)
+    check_cmd.set_defaults(handler=cmd_check)
     return parser
 
 

@@ -165,3 +165,32 @@ def generate_orders(
                   "delivered", ship_date.isoformat(), delivery_date.isoformat())
         )
     return orders
+
+
+LINES_PER_ORDER = {1: 50, 2: 30, 3: 15, 4: 5}
+QUANTITY = {1: 70, 2: 22, 3: 8}
+DISCOUNT_PCT = {0: 80, 10: 15, 20: 5}
+NOVEMBER_DISCOUNT_PCT = {0: 40, 10: 30, 20: 30}  # holiday promotion
+
+
+@dataclass(frozen=True)
+class OrderItem:
+    order_id: int
+    product_id: int
+    quantity: int
+    unit_price_cents: int
+    discount_pct: int
+
+
+def generate_order_items(
+    rng: random.Random, orders: list[Order], products: list[Product]
+) -> list[OrderItem]:
+    items = []
+    for order in orders:
+        discounts = NOVEMBER_DISCOUNT_PCT if order.order_date[5:7] == "11" else DISCOUNT_PCT
+        for product in rng.sample(products, pick(rng, LINES_PER_ORDER)):
+            items.append(
+                OrderItem(order.order_id, product.product_id, pick(rng, QUANTITY),
+                          product.unit_price_cents, pick(rng, discounts))
+            )
+    return items

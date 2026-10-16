@@ -57,10 +57,11 @@ git clone https://github.com/AadityaU/result-explainer.git
 cd result-explainer
 python -m venv .venv
 .venv\Scripts\activate              # macOS/Linux: source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[dev,ui]"          # ui = the optional Streamlit dashboard
 python -m result_explainer build-db
 python -m result_explainer check
 python -m result_explainer ask q03
+python -m result_explainer dashboard
 pytest
 ```
 
@@ -71,27 +72,43 @@ pytest
 | `build-db` | Builds `build/store.db` from `sql/schema.sql` and `data/*.csv` |
 | `list` | Lists the approved questions |
 | `ask <id>` | Runs one approved question and explains the result. Options: `--explainer auto\|template\|llm\|faulty`, `--show-sql`, `--show-facts`, `--db PATH` |
+| `dashboard` | Opens the Streamlit dashboard (needs the `ui` extra) |
 | `check` | Runs every approved question, checks its columns, and checks that its template explanation passes the validator |
+| `evaluate` | Runs every question through each model alone and through the routed pair, and reports how often each stays grounded (`--report PATH` writes markdown) |
 | `generate-data` | Rewrites `data/*.csv` from the seeded generator (`--seed`, default 42) |
 
-`--explainer auto` (the default) uses the model when `LLM_BASE_URL` is set, otherwise the template.
+`--explainer auto` (the default) uses the language model when `LLM_API_KEY` is set, otherwise
+the template.
+
+## Dashboard
+
+`python -m result_explainer dashboard` opens a Streamlit page over the same pipeline as the CLI:
+
+- pick an approved question and see its result table (and, optionally, its SQL and every fact);
+- read the explanation with each citation shown as a chip whose tooltip is the cited value,
+  a status badge (grounded, fallback, template, empty), and a table of the cited facts;
+- switch the explainer to **Faulty (failure demo)** to watch invented numbers get rejected, with
+  each rejected attempt and its issues listed;
+- open **Validation check** to see every approved question pass.
 
 ## Using a language model
 
-Any OpenAI-compatible chat endpoint works. Copy `.env.example` to `.env` and fill it in.
-`.env` is gitignored, and nothing in the code holds a key.
+Copy `.env.example` to `.env` and paste an [OpenRouter](https://openrouter.ai/keys) API key.
+That is the only setting. `.env` is gitignored, and nothing in the code holds a key.
 
-| Option | Settings in `.env` |
-|--------|--------------------|
-| Ollama (local, free, no key) | `LLM_BASE_URL=http://localhost:11434/v1` and `LLM_MODEL=<a model you pulled>` |
-| Groq or OpenRouter (free tiers) | the provider's base URL, a model id, and `LLM_API_KEY` |
+**Models are chosen automatically:**
 
-```bash
-python -m result_explainer ask q05 --explainer llm
-```
+| Role | Model | Why |
+|------|-------|-----|
+| Draft | `google/gemini-4-argon` | Writes every first answer. Grounded on all 36 evaluated answers (35 on the first attempt), never slower than 13.2 seconds |
+| Retry | `z-ai/glm-5.3` | Only called when the draft fails validation (with the validator's issues as feedback) or the draft model errors or misses the 45-second deadline. Just as grounded and about 4× cheaper, but 5 of its 27 answers took over 30 seconds (the slowest 435 s), so it is the second opinion, not the first answer |
 
-Missing settings are reported as an error. An unreachable endpoint, or an answer that fails
-validation twice, falls back to the template summary and the output shows why.
+The choice comes from [`docs/model-evaluation.md`](docs/model-evaluation.md). To run fully
+local instead, point `LLM_BASE_URL` at Ollama and set `LLM_DRAFT_MODEL` / `LLM_RETRY_MODEL`
+(see `.env.example`).
+
+A missing key is reported as an error. An unreachable model or an answer that fails both
+attempts falls back to the template summary, and the output shows why.
 
 ## Architecture
 
@@ -100,11 +117,13 @@ flowchart LR
     Q[Approved question<br/>sql/questions/*.sql] --> SQL[Run SQL<br/>read-only SQLite]
     SQL --> F[Fact table<br/>values + reference ids]
     F -->|no rows| T[Template explainer]
-    F --> E[Explainer interface<br/>LLM / template]
-    E --> V{Grounding<br/>validator}
-    V -->|pass| OUT[Explanation<br/>with citations]
-    V -->|fail: retry once<br/>with the issues| E
-    V -->|still failing| T
+    F --> D[Draft model<br/>gemini-4-argon]
+    D --> V1{Grounding<br/>validator}
+    V1 -->|pass| OUT[Explanation<br/>with citations]
+    V1 -->|fail: issues as feedback| R[Retry model<br/>glm-5.3]
+    R --> V2{Grounding<br/>validator}
+    V2 -->|pass| OUT
+    V2 -->|fail| T
     T --> OUT
 ```
 
@@ -114,8 +133,11 @@ flowchart LR
 | Database | `db.py` | Builds SQLite from the CSVs and opens it with `mode=ro` for queries |
 | Fact table | `facts.py`, `formatting.py` | Turns rows into referenced values such as `[r1.net_revenue] = $327,496.25` |
 | Explainer interface | `explainers/base.py` | One `explain(facts, feedback)` method; only `explainers/llm.py` calls a model |
+| Model routing | `explainers/llm.py` | Draft and retry models, OpenRouter by default, any OpenAI-compatible endpoint |
 | Grounding validator | `validator.py` | Checks every number and citation against the fact table |
-| Pipeline | `pipeline.py` | Runs the question, retries once with feedback, falls back to the template |
+| Pipeline | `pipeline.py` | One attempt per explainer in order, then the template fallback |
+| Evaluation | `evaluate.py` | Grounded rate, attempts and latency per model across all questions |
+| Dashboard | `dashboard.py` | Streamlit page over the pipeline |
 
 ## Data model
 
@@ -220,7 +242,8 @@ from the header is refused. `focus` is the main metric the template summary desc
 
 Every cell of the result becomes a **fact** with a reference id: `r{row}.{column}` (rows start
 at 1), plus `meta.row_count`. The explainer sees only these facts and must cite them in square
-brackets. Run `ask <id> --show-facts` to see them all.
+brackets, one id per bracket or several together (`[r1.net_revenue, r1.delivered_orders]`).
+Run `ask <id> --show-facts` to see them all.
 
 The validator ([`validator.py`](src/result_explainer/validator.py)) splits the explanation into
 sentences and reports:
@@ -244,16 +267,17 @@ Matching rules:
   numbers from the question itself ("top 10", "14-day") need no citation.
 - `n/a` (NULL) values can't back any number.
 
-The pipeline ([`pipeline.py`](src/result_explainer/pipeline.py)) gives the model two attempts,
-sending the validator's issues back as feedback after the first one. If both fail, or the
-endpoint errors, the deterministic template summary is shown instead. Each answer is labelled:
+The pipeline ([`pipeline.py`](src/result_explainer/pipeline.py)) gives the draft model one
+attempt. If it is rejected, the retry model gets one attempt, with the validator's issues as
+feedback. If the draft model errors, the retry model answers instead. If both fail, the
+deterministic template summary is shown. Each answer is labelled:
 
 | Status | Meaning |
 |--------|---------|
-| `grounded` | The model's answer passed every check |
+| `grounded` | A model's answer passed every check (the output names which model) |
 | `template` | The template was requested directly (no model) |
-| `fallback` | The model's answer was rejected or the call failed; the template is shown and the rejected attempts are listed |
-| `empty` | The query returned no rows, so the model was never called |
+| `fallback` | Every attempt was rejected or failed; the template is shown and the rejected attempts are listed |
+| `empty` | The query returned no rows, so no model was called |
 
 **Known limitations.** The validator checks numbers, citations and named rows. It does not check
 direction words ("rose" vs "fell") or qualitative claims that contain no number or row name. It
@@ -294,12 +318,36 @@ missed the 14-day delivery promise".
 ```
 
 Also covered: NULL growth for the first month in q05 (shown as `n/a`), a model endpoint that is
-unreachable (falls back), and missing model settings (clear error, exit code 2).
+unreachable (falls back), and a missing API key (clear error, exit code 2). In the dashboard,
+choose **Faulty (failure demo)** to see the same rejection with each attempt and its issues.
+
+## Model evaluation
+
+`python -m result_explainer evaluate --report docs/model-evaluation.md` runs every question
+through each model alone and through the routed pair. These are real runs against OpenRouter,
+counted after the grouped-citation fix described below:
+
+| Setup | Answers | Grounded | First attempt | Median | Slowest |
+|-------|--------:|---------:|--------------:|-------:|--------:|
+| `google/gemini-4-argon` alone | 27 | 27 | 26 | 6.9 s | 13.2 s |
+| `z-ai/glm-5.3` alone | 27 | 27 | 26 | 6.3 s | 435.1 s |
+| `z-ai/glm-5.3-flash` alone | 9 | 9 | 8 | 9.6 s | 178.1 s |
+| **Routed (what users get)** | 9 | 9 | 9 | 5.6 s | 9.9 s |
+
+The full report, with every explanation and every rejected attempt, is in
+[`docs/model-evaluation.md`](docs/model-evaluation.md). The real-model runs found two bugs that
+the offline tests had missed:
+
+- **Grouped citations.** Both models often cite several facts in one bracket
+  (`[r1.net_revenue, r1.delivered_orders]`), and the validator read those as uncited numbers,
+  rejecting answers that were fully grounded.
+- **Unbounded response time.** Answers took up to 435 s despite a 120 s timeout, because the
+  HTTP timeout only limits the gap between bytes. Every answer now has a hard 45 s deadline.
 
 ## Tests
 
 ```bash
-pytest          # 124 tests, no network needed
+pytest          # 140 tests, no network needed
 python -m result_explainer check
 ```
 
@@ -311,9 +359,11 @@ python -m result_explainer check
 | `test_facts.py` | Display formatting, half-up rounding, reference ids, NULL handling |
 | `test_validator.py` | Invented, uncited and misattributed numbers; rounding; labels; calculation words |
 | `test_template.py` | The template explanation passes the validator for every question |
-| `test_llm.py` | Request payload, auth header, error handling and settings, against a mocked endpoint |
-| `test_pipeline.py` | Retry with feedback, fallback after two rejections, empty results skip the model |
+| `test_llm.py` | Request payload, auth header, errors, settings and model routing, against a mocked endpoint |
+| `test_pipeline.py` | Draft then retry model with feedback, fallback, error fall-through, empty results skip the model |
+| `test_evaluate.py` | Grounded-rate summary, report contents and the evaluated setups |
 | `test_cli.py` | Every command and error path |
+| `test_dashboard.py` | The dashboard renders template, faulty and empty-result views (Streamlit app tester) |
 
 CI runs `build-db`, `check` and `pytest` from a clean checkout on Python 3.10 and 3.13.
 
@@ -330,9 +380,13 @@ src/result_explainer/
   questions.py                  question files, registry and runner
   formatting.py  facts.py       displayed values and reference ids
   validator.py                  grounding checks
-  explainers/                   base interface, template, llm, faulty (demo only)
-  pipeline.py                   retry and fallback
+  explainers/                   base interface, template, llm (with model routing), faulty (demo only)
+  pipeline.py                   draft, retry and fallback
+  evaluate.py                   model evaluation
   render.py                     terminal output
+  dashboard.py                  Streamlit dashboard
 tests/                          pytest suite
 docs/design-note.md             design and decision note
+docs/model-evaluation.md        evaluation report from real model runs
+docs/demo-script.md             demo video script
 ```

@@ -45,6 +45,13 @@ def split_sentences(text: str) -> list[str]:
 
 
 CITATION = re.compile(r"\[(r\d+\.[a-z_]+|meta\.[a-z_]+)\]")
+# Ratios and multiples the model would have to compute itself. Any comparison the
+# explanation needs (growth, share) must already be a column in the result.
+CALCULATION = re.compile(
+    r"\b(?:doubl\w*|tripl\w*|quadrupl\w*|twice|thrice|\d+(?:\.\d+)?x"
+    r"|\w+ times (?:as|more|higher|larger|bigger|greater))\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -100,6 +107,10 @@ def validate(text: str, facts: FactTable) -> ValidationResult:
             else:
                 detail = f"{mention.text} does not appear anywhere in the result"
                 issues.append(Issue("invented_number", detail, sentence))
+
+        for match in CALCULATION.finditer(plain):
+            detail = f'"{match.group(0)}" implies a calculation the query did not return'
+            issues.append(Issue("unsupported_calculation", detail, sentence))
 
     if not facts.is_empty and not cited_any:
         issues.append(Issue("no_citations", "the explanation does not cite any returned metric"))

@@ -1,8 +1,13 @@
 """The only module that talks to a language model: any OpenAI-compatible chat endpoint.
 
-Models are chosen automatically. A fast, cheap model writes the first draft; a stronger model
-is only called when that draft fails the grounding checks, and it gets the validator's feedback.
-The defaults come from running ``python -m result_explainer evaluate`` (docs/model-evaluation.md).
+Models are chosen automatically. The draft model answers first. A model from a different family
+is only called when that draft fails the grounding checks (it gets the validator's feedback), or
+when the draft model errors or misses the deadline.
+
+The assignment comes from ``python -m result_explainer evaluate`` (docs/model-evaluation.md).
+gemini-4-argon and glm-5.3 were both grounded on every question, almost always on the first
+attempt. Gemini never took more than 14s, while glm-5.3 sometimes took minutes, so glm-5.3 is
+the cheap second opinion rather than the first answer. glm-5.3-flash was slower than both.
 """
 
 from __future__ import annotations
@@ -19,8 +24,8 @@ from result_explainer.explainers.base import ExplainerError
 from result_explainer.facts import FactTable
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
-DRAFT_MODEL = "z-ai/glm-5.3-flash"
-RETRY_MODEL = "google/gemini-4-argon"
+DRAFT_MODEL = "google/gemini-4-argon"
+RETRY_MODEL = "z-ai/glm-5.3"
 
 SYSTEM_PROMPT = """\
 You explain SQL query results to business readers in plain language.
@@ -159,7 +164,7 @@ class LLMExplainer:
 
 
 def routed_explainers(settings: LLMSettings, client: httpx.Client | None = None) -> list[LLMExplainer]:
-    """[draft, retry]: the fast model drafts, the stronger one only handles rejected drafts."""
+    """[draft, retry]: the draft model answers; the retry model only handles failed drafts."""
     client = client or httpx.Client(timeout=settings.timeout_seconds)
     draft = LLMExplainer(settings, settings.draft_model, client)
     if settings.retry_model == settings.draft_model:

@@ -1,9 +1,9 @@
 """Question -> SQL -> facts -> explainer -> validator, with one retry and a safe fallback.
 
 An answer gets one attempt from each explainer in the list it is given, in order. With a
-language model configured the list is [draft model, retry model]: the fast model writes the
-first draft, and the stronger model is only called, with the validator's feedback, when the
-draft is rejected (see ``explainers/llm.py``).
+language model configured the list is [draft model, retry model]: the retry model is only
+called, with the validator's feedback, when the draft is rejected or the draft model fails
+(see ``explainers/llm.py``).
 
 Statuses:
     empty     the query returned no rows; no explainer is called

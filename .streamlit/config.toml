@@ -3,3 +3,30 @@ headless = true
 
 [browser]
 gatherUsageStats = false
+
+# Light and dark themes in the same blue. Viewers switch between them from the
+# app menu (top right) under Settings.
+[theme]
+baseRadius = "0.5rem"
+
+[theme.light]
+primaryColor = "#0b5cad"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f2f5f9"
+textColor = "#1f2328"
+linkColor = "#0b5cad"
+borderColor = "#d5dce5"
+
+[theme.light.sidebar]
+backgroundColor = "#f2f5f9"
+
+[theme.dark]
+primaryColor = "#4c9be8"
+backgroundColor = "#0e1117"
+secondaryBackgroundColor = "#1a2029"
+textColor = "#e6edf3"
+linkColor = "#6cb4f0"
+borderColor = "#2b3440"
+
+[theme.dark.sidebar]
+backgroundColor = "#151a22"

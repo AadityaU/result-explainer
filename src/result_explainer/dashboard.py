@@ -473,6 +473,7 @@ def main() -> None:
                 "Add a key to .env (or the host's environment) to use the model."
             )
         st.link_button("View the code on GitHub", REPO_URL)
+        st.caption("Light or dark: use the ⋮ menu at the top right.")
 
     show_intro(questions)
     explain_tab, how_tab, data_tab, checks_tab = st.tabs(

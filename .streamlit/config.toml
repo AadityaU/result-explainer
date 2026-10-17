@@ -3,6 +3,3 @@ headless = true
 
 [browser]
 gatherUsageStats = false
-
-[theme]
-primaryColor = "#0b5cad"

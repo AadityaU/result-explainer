@@ -1,0 +1,14 @@
+# Render Blueprint: runs the Streamlit dashboard as a free web service.
+# In Render: New > Blueprint, then connect this repository. Render asks for LLM_API_KEY
+# when the service is created; without a key the dashboard uses the template explainer.
+services:
+  - type: web
+    name: result-explainer
+    runtime: python
+    plan: free
+    buildCommand: pip install -e ".[ui]" && python -m result_explainer build-db
+    startCommand: streamlit run src/result_explainer/dashboard.py --server.address 0.0.0.0 --server.port $PORT
+    healthCheckPath: /_stcore/health
+    envVars:
+      - key: LLM_API_KEY
+        sync: false

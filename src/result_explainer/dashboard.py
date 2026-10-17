@@ -63,6 +63,21 @@ HOW_IT_WORKS = """
 """
 DRAFT_WHY = "grounded on all 36 evaluated answers, never slower than 13.2 s"
 RETRY_WHY = "just as grounded and about 4x cheaper, but sometimes slow: an independent second opinion"
+TABLE_NOTES = {
+    "customers": "Each customer's region and segment (consumer or business)",
+    "products": "40 products in five categories, with prices",
+    "orders": "Order date, sales channel and status; cancelled orders have no delivery date",
+    "order_items": "Order lines: quantity, price at the time of the order and discount",
+    "returns": "Units sent back from an order line, with the reason",
+}
+METRIC_DEFINITIONS = """
+- **Net revenue**: quantity × unit price × (100 − discount %) / 100, delivered orders only, before returns.
+- **Average order value**: net revenue ÷ delivered orders.
+- **Return rate**: units returned ÷ units sold on delivered orders.
+- **Repeat customer**: a customer with two or more delivered orders.
+- **New customer in a quarter**: the customer's first delivered order falls in that quarter.
+- **Delivery days**: days from the order date to the delivery date.
+"""
 LIMITATIONS = """
 The validator checks numbers, citations and the rows a sentence names. It does not check
 direction words ("rose" vs "fell"), claims that contain no number or row name, or month names
@@ -336,6 +351,73 @@ def show_how_it_works_page() -> None:
     )
 
 
+@st.cache_data(show_spinner=False)
+def table_columns() -> dict[str, list[tuple[str, bool]]]:
+    """(column name, is primary key) for every table, read from the database itself."""
+    conn = connect_read_only(DEFAULT_DB)
+    try:
+        return {
+            table: [(row[1], bool(row[5])) for row in conn.execute(f"PRAGMA table_info({table})")]
+            for table in TABLES
+        }
+    finally:
+        conn.close()
+
+
+@st.cache_data(show_spinner=False)
+def preview_rows(table: str, limit: int = 20) -> list[dict]:
+    if table not in TABLES:
+        raise ValueError(f"unknown table {table!r}")
+    conn = connect_read_only(DEFAULT_DB)
+    try:
+        cursor = conn.execute(f"SELECT * FROM {table} LIMIT ?", (limit,))
+        columns = [description[0] for description in cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+
+def schema_dot() -> str:
+    nodes = []
+    for table, columns in table_columns().items():
+        lines = "".join(f"{name}{' (PK)' if is_key else ''}\\l" for name, is_key in columns)
+        nodes.append(f'  {table} [label="{table}\\l\\l{lines}"];')
+    return "\n".join([
+        "digraph {",
+        '  rankdir=LR; bgcolor="transparent"; nodesep=0.4; ranksep=0.7;',
+        '  node [shape=box, style="rounded,filled", fillcolor="#eef3fb", color="#0b5cad",',
+        '        fontname="Helvetica", fontsize=12, fontcolor="#1f2328", margin="0.2,0.1"];',
+        '  edge [color="#8a94a6", fontcolor="#8a94a6", fontname="Helvetica", fontsize=11];',
+        *nodes,
+        '  customers -> orders [label="places"];',
+        '  orders -> order_items [label="contains"];',
+        '  products -> order_items [label="sold as"];',
+        '  order_items -> returns [label="returned as"];',
+        "}",
+    ])
+
+
+def show_dataset_page() -> None:
+    st.subheader("Dataset")
+    st.write(
+        "A fictional online store's activity in 2025, generated from a fixed seed, so the same "
+        "data is rebuilt byte for byte on every machine. Everything is synthetic: no real people, "
+        "products or companies. Money is stored in integer cents."
+    )
+    counts = table_counts()
+    st.markdown(
+        "| Table | Rows | What it holds |\n|---|---:|---|\n"
+        + "\n".join(f"| `{table}` | {counts[table]:,} | {TABLE_NOTES[table]} |" for table in TABLES)
+    )
+    st.graphviz_chart(schema_dot())
+    st.markdown("#### Metric definitions")
+    st.markdown(METRIC_DEFINITIONS)
+    st.markdown("#### Preview a table")
+    table = st.selectbox("Table", TABLES, key="preview_table", label_visibility="collapsed")
+    st.dataframe(preview_rows(table), hide_index=True, use_container_width=True)
+    st.caption("The first 20 rows, read through the same read-only connection the questions use.")
+
+
 def show_checks_page(questions: dict) -> None:
     st.subheader("Validation check")
     st.write(
@@ -387,11 +469,15 @@ def main() -> None:
         st.link_button("View the code on GitHub", REPO_URL)
 
     show_intro(questions)
-    explain_tab, how_tab, checks_tab = st.tabs(["Explain a question", "How it works", "Validation check"])
+    explain_tab, how_tab, data_tab, checks_tab = st.tabs(
+        ["Explain a question", "How it works", "Dataset", "Validation check"]
+    )
     with explain_tab:
         show_question_page(questions, question_id, mode, show_sql, show_facts)
     with how_tab:
         show_how_it_works_page()
+    with data_tab:
+        show_dataset_page()
     with checks_tab:
         show_checks_page(questions)
 

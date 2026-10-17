@@ -57,6 +57,17 @@ def test_intro_and_how_it_works_describe_the_project(app):
     assert "Which model does what" in text
 
 
+def test_dataset_tab_lists_tables_and_previews_rows(app):
+    text = page_html(app)
+    assert "Metric definitions" in text
+    assert "| `orders` | 4,310 |" in text
+    app.selectbox(key="preview_table").set_value("orders").run()
+    assert not app.exception
+    preview = app.dataframe[-2].value  # the table preview, before the validation-check table
+    assert list(preview.columns)[:3] == ["order_id", "customer_id", "order_date"]
+    assert len(preview) == 20
+
+
 def test_faulty_explainer_shows_rejected_attempts(app):
     app.radio(key="mode").set_value("Faulty (failure demo)").run()
     assert not app.exception

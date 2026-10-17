@@ -59,7 +59,8 @@ This opens a Streamlit page at http://localhost:8501.
 In the sidebar, the **Explainer** setting switches between the language model, the template and
 **Faulty (failure demo)**. Faulty deliberately invents numbers, so you can watch them get
 rejected. With a key set, the model only runs when you click **Explain with the language
-model**.
+model**. The page has matching light and dark themes. It follows your system setting, and the
+⋮ menu at the top right switches between System, Light and Dark.
 
 ### Option B: the command line (terminal)
 
@@ -134,25 +135,38 @@ local instead, point `LLM_BASE_URL` at Ollama and set `LLM_DRAFT_MODEL` / `LLM_R
 A missing key is reported as an error. An unreachable model or an answer that fails both
 attempts falls back to the template summary, and the output shows why.
 
-## Deploy on Render
+## Deploy
 
-The repo includes a Render Blueprint ([`render.yaml`](render.yaml)) that runs the dashboard as a
-free web service:
+### Streamlit Community Cloud (recommended)
 
-1. Push the repo to GitHub, then in Render choose **New > Blueprint** and connect it.
-2. Render reads `render.yaml`. It installs the project, builds the database, starts Streamlit on
-   Render's port and checks `/_stcore/health`. Python 3.13 comes from `.python-version`.
-3. When asked for `LLM_API_KEY`, paste an OpenRouter key, or leave it empty to run with the
-   template only.
+Free hosting made for Streamlit apps, deployed straight from this GitHub repo:
 
-**Before sharing the link:** a public dashboard spends the key owner's credit. The dashboard
-only calls the model when a visitor clicks **Explain with the language model**, and each visitor
-session is capped at 20 model explanations. A reload starts a new session, though, so also set a
-**credit limit on the OpenRouter key**, and use a key made just for the deployment.
+1. Sign in at [share.streamlit.io](https://share.streamlit.io) with the GitHub account that owns
+   the repo, and choose **Create app**.
+2. Pick the repository `AadityaU/result-explainer`, branch `main`, and main file path
+   `src/result_explainer/dashboard.py`.
+3. Open **Advanced settings**. Choose Python 3.13, and under **Secrets** paste
+   `LLM_API_KEY = "your-openrouter-key"`. Leave the secrets empty to run with the template only.
+4. Deploy. Cloud installs [`requirements.txt`](requirements.txt), and the dashboard builds the
+   database on its first load.
 
-On the free plan the service sleeps after 15 minutes without traffic and takes about a minute to
-wake on the next visit. The database is rebuilt from the committed CSVs on every deploy, so
-nothing is lost when the instance restarts.
+### Render (alternative)
+
+The repo also includes a Render Blueprint ([`render.yaml`](render.yaml)). In Render, choose
+**New > Blueprint**, connect the repo, and paste the key when asked for `LLM_API_KEY`. Render
+installs the project, builds the database, starts Streamlit on its port and checks
+`/_stcore/health`. Python 3.13 comes from `.python-version`.
+
+| | Streamlit Community Cloud | Render (free plan) |
+|---|---|---|
+| Setup | Pick the repo and the file, paste the key | Blueprint from `render.yaml` |
+| Sleeps after | 12 hours without traffic | 15 minutes without traffic (about a minute to wake) |
+| Memory | 690 MB to 2.7 GB | 512 MB |
+
+**Before sharing the link (either host):** a public dashboard spends the key owner's credit. The
+dashboard only calls the model when a visitor clicks **Explain with the language model**, and each
+visitor session is capped at 20 model explanations. A reload starts a new session, though, so
+also set a **credit limit on the OpenRouter key**, and use a key made just for the deployment.
 
 ## Architecture
 
@@ -433,6 +447,7 @@ tests/                          pytest suite
 docs/design-note.md             design and decision note
 docs/model-evaluation.md        evaluation report from real model runs
 docs/demo-script.md             demo video script
+requirements.txt                Streamlit Community Cloud dependencies
 render.yaml  .python-version    Render deployment
-.streamlit/config.toml          dashboard server settings
+.streamlit/config.toml          dashboard server settings and light/dark themes
 ```

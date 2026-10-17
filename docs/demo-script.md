@@ -41,8 +41,12 @@ python -m result_explainer ask q05 --explainer template --show-sql
 python -m result_explainer dashboard
 ```
 
-- Pick q03, then q07. Read the explanation, hover a citation chip to show its value, and point
-  at the **Grounded** badge and the "Written by llm (google/gemini-4-argon)" caption.
+- Start on the intro: the four key numbers, then open **How it works** (pipeline diagram,
+  validator rules, which model does what) and **Dataset** (tables, diagram, a preview).
+- Back on **Explain a question**, pick q03 and click **Explain with the language model** (the
+  model only runs on request, which keeps a public deployment's costs down). Read the
+  explanation, hover a citation chip to show its value, and point at the **Grounded** badge and
+  the "Written by llm (google/gemini-4-argon)" caption. Repeat with q07.
 - Show the Cited facts table, then toggle Show SQL and Show all facts.
 - Explain the routing: gemini-4-argon drafts, glm-5.3 is the second opinion for a rejected or
   late draft, and why (see `docs/model-evaluation.md`).

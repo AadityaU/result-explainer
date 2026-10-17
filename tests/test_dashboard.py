@@ -48,6 +48,15 @@ def test_model_calls_stop_at_the_session_cap(monkeypatch):
     assert not app.button
 
 
+def test_intro_and_how_it_works_describe_the_project(app):
+    labels = [metric.label for metric in app.metric]
+    assert labels == ["Approved questions", "Rows of synthetic data", "Rules checked per answer", "Grounded in evaluation"]
+    assert app.metric[0].value == "10"
+    text = page_html(app)
+    assert "What the validator rejects" in text
+    assert "Which model does what" in text
+
+
 def test_faulty_explainer_shows_rejected_attempts(app):
     app.radio(key="mode").set_value("Faulty (failure demo)").run()
     assert not app.exception

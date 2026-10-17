@@ -13,10 +13,17 @@ import time
 import streamlit as st
 from dotenv import load_dotenv
 
-from result_explainer.db import build_database
+from result_explainer.db import build_database, connect_read_only
 from result_explainer.explainers.base import Explainer
 from result_explainer.explainers.faulty import FaultyExplainer
-from result_explainer.explainers.llm import LLMSettings, llm_configured, routed_explainers
+from result_explainer.explainers.llm import (
+    DRAFT_MODEL,
+    RETRY_MODEL,
+    LLMSettings,
+    llm_configured,
+    routed_explainers,
+)
+from result_explainer.generate import TABLES
 from result_explainer.explainers.template import TemplateExplainer
 from result_explainer.facts import FactTable, build_facts
 from result_explainer.paths import DEFAULT_DB, ROOT
@@ -32,6 +39,36 @@ MODES = {
 # A public deployment spends the owner's API credit, so the model only runs on request and
 # each visitor session gets a limited number of model explanations.
 MODEL_CALLS_PER_SESSION = 20
+REPO_URL = "https://github.com/AadityaU/result-explainer"
+
+ISSUE_RULES = [
+    ("invented_number", "A number that matches no value in the result"),
+    ("uncited_number", "A real value, but not held by any fact cited in the same sentence"),
+    ("mismatched_label", "The sentence names a row (a region, month, product) that none of its citations belong to"),
+    ("unsupported_calculation", "Words like doubled, twice or 3x that imply math the query didn't do"),
+    ("unknown_reference", "A citation id that doesn't exist"),
+    ("no_citations", "A non-empty result explained without citing anything"),
+]
+HOW_IT_WORKS = """
+1. **Approved SQL only.** Ten reviewed queries live in `sql/questions/`. The model never writes
+   SQL, and the database is opened read-only.
+2. **SQL does the math.** Growth, shares, averages and rates are computed in the query, so the
+   model only describes values it is given.
+3. **Every value gets an id.** Each cell of the result becomes a fact such as `[r3.net_revenue]`,
+   and the explanation must cite these ids.
+4. **Every sentence is checked.** Each number must match a fact cited in the same sentence, and
+   every row the sentence names must be one it cites.
+5. **Retry, then fall back.** A rejected draft goes to a second model, with the issues found. If
+   that also fails, a deterministic template summary is shown, clearly labelled.
+"""
+DRAFT_WHY = "grounded on all 36 evaluated answers, never slower than 13.2 s"
+RETRY_WHY = "just as grounded and about 4x cheaper, but sometimes slow: an independent second opinion"
+LIMITATIONS = """
+The validator checks numbers, citations and the rows a sentence names. It does not check
+direction words ("rose" vs "fell"), claims that contain no number or row name, or month names
+written out ("March" instead of `2025-03`). The prompt asks the model to get these right, but
+nothing enforces them.
+"""
 STATUS = {
     "grounded": ("#1a7f37", "Grounded", "Every number was matched to a cited fact from the result."),
     "fallback": ("#b35900", "Fallback", "The model's answers were rejected, so the template summary is shown."),
@@ -203,6 +240,102 @@ def show_question_page(questions: dict, question_id: str, mode: str, show_sql: b
     show_explanation(question_id, mode)
 
 
+@st.cache_data(show_spinner=False)
+def table_counts() -> dict[str, int]:
+    conn = connect_read_only(DEFAULT_DB)
+    try:
+        return {table: conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in TABLES}
+    finally:
+        conn.close()
+
+
+def show_intro(questions: dict) -> None:
+    st.markdown("## Explaining SQL results without inventing numbers")
+    st.write(
+        "Pick one of the approved analytics questions about a fictional online store. The query "
+        "runs read-only, a language model explains the result in plain language, and every number "
+        "in its answer is checked against the rows the query returned before you see it. An "
+        "answer that fails the check is retried once and otherwise replaced by a deterministic "
+        "summary, so what you read is always grounded in the data."
+    )
+    first, second, third, fourth = st.columns(4)
+    first.metric("Approved questions", len(questions))
+    second.metric("Rows of synthetic data", f"{sum(table_counts().values()):,}")
+    third.metric("Rules checked per answer", len(ISSUE_RULES))
+    fourth.metric(
+        "Grounded in evaluation", "36 / 36",
+        help="Answers from the draft model across every evaluation run (docs/model-evaluation.md).",
+    )
+
+
+def models_in_use() -> tuple[str, str]:
+    if llm_configured():
+        settings = LLMSettings.from_env()
+        return settings.draft_model, settings.retry_model
+    return DRAFT_MODEL, RETRY_MODEL
+
+
+def pipeline_dot(draft: str, retry: str) -> str:
+    return f"""
+digraph {{
+  rankdir=TB; bgcolor="transparent"; nodesep=0.6; ranksep=0.45;
+  node [shape=box, style="rounded,filled", fillcolor="#eef3fb", color="#0b5cad",
+        fontname="Helvetica", fontsize=13, fontcolor="#1f2328", margin="0.15,0.08"];
+  edge [color="#8a94a6", fontcolor="#8a94a6", fontname="Helvetica", fontsize=11];
+  {{ rank=same; question; sql; facts; }}
+  {{ rank=same; draft; check1; answer; }}
+  {{ rank=same; retry; check2; template; }}
+  question [label="Approved question\\n(reviewed .sql file)"];
+  sql [label="Run SQL\\nread-only"];
+  facts [label="Fact table\\nvalue + id per cell"];
+  draft [label="Draft model\\n{draft}"];
+  check1 [label="Validator", shape=diamond];
+  retry [label="Retry model\\n{retry}"];
+  check2 [label="Validator", shape=diamond];
+  template [label="Template\\nsummary"];
+  answer [label="Explanation\\nwith citations", fillcolor="#e6f4ea", color="#1a7f37"];
+  question -> sql -> facts -> draft -> check1;
+  check1 -> answer [label="pass"];
+  check1 -> retry [label="fail + issues"];
+  retry -> check2;
+  check2 -> answer [label="pass"];
+  check2 -> template [label="fail"];
+  facts -> template [label="no rows"];
+  template -> answer;
+}}"""
+
+
+def show_how_it_works_page() -> None:
+    draft, retry = models_in_use()
+    st.subheader("How it works")
+    st.graphviz_chart(pipeline_dot(draft, retry))
+    st.markdown(HOW_IT_WORKS)
+
+    st.markdown("#### What the validator rejects")
+    st.dataframe(
+        [{"issue": kind, "meaning": meaning} for kind, meaning in ISSUE_RULES],
+        hide_index=True, use_container_width=True,
+    )
+
+    st.markdown("#### Which model does what")
+    draft_why = DRAFT_WHY if draft == DRAFT_MODEL else "set in the environment"
+    retry_why = RETRY_WHY if retry == RETRY_MODEL else "set in the environment"
+    st.markdown(
+        "| Role | Model | Runs | Why |\n|---|---|---|---|\n"
+        f"| Draft | `{draft}` | for every first answer | {draft_why} |\n"
+        f"| Retry | `{retry}` | only if the draft fails a check, errors or misses the 45 s deadline "
+        f"| {retry_why} |"
+    )
+
+    st.markdown("#### Known limitations")
+    st.markdown(LIMITATIONS)
+    st.markdown(
+        f"More detail: [code on GitHub]({REPO_URL}) · "
+        f"[design note]({REPO_URL}/blob/main/docs/design-note.md) · "
+        f"[model evaluation]({REPO_URL}/blob/main/docs/model-evaluation.md)"
+    )
+
+
 def show_checks_page(questions: dict) -> None:
     st.subheader("Validation check")
     st.write(
@@ -251,10 +384,14 @@ def main() -> None:
                 "No LLM_API_KEY is set, so the template explains instead of the model. "
                 "Add a key to .env (or the host's environment) to use the model."
             )
+        st.link_button("View the code on GitHub", REPO_URL)
 
-    explain_tab, checks_tab = st.tabs(["Explain a question", "Validation check"])
+    show_intro(questions)
+    explain_tab, how_tab, checks_tab = st.tabs(["Explain a question", "How it works", "Validation check"])
     with explain_tab:
         show_question_page(questions, question_id, mode, show_sql, show_facts)
+    with how_tab:
+        show_how_it_works_page()
     with checks_tab:
         show_checks_page(questions)
 

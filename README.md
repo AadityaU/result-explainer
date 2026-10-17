@@ -6,6 +6,75 @@ Explains the results of approved analytics SQL queries in plain language, withou
 Every figure in an explanation is checked against the rows the query returned, and every claim
 cites the metric it came from.
 
+![Dashboard: a grounded explanation with a citation chip next to every number](docs/images/dashboard-explanation.jpg)
+
+## The problem
+
+Ask a language model to summarise a table and it will often round, extrapolate or invent figures
+that sound right but were never in the data. For analytics that is worse than no summary at all.
+
+This project keeps the model on a short leash:
+
+- **SQL does all the math.** Growth rates, shares and averages are computed in the query. The
+  model only describes values it is given.
+- **Only approved questions run.** Ten curated SQL questions over a synthetic dataset. The model
+  never writes SQL, and the database is opened read-only.
+- **Every number is verified.** A grounding validator rejects any explanation that contains a
+  figure missing from the result, or cites a metric that doesn't hold that figure.
+- **Safe fallback.** If the model can't produce a grounded explanation in two attempts, a
+  deterministic template explanation is shown instead, clearly marked.
+
+## Try it
+
+There are two ways to use the project. Both run the same pipeline, and both work **without an
+API key**: the deterministic template explains instead of the model until you add one (see
+[Using a language model](#using-a-language-model)).
+
+**Setup (once, for either way).** Requires Python 3.10+.
+
+```bash
+git clone https://github.com/AadityaU/result-explainer.git
+cd result-explainer
+python -m venv .venv
+.venv\Scripts\activate              # macOS/Linux: source .venv/bin/activate
+pip install -e ".[dev,ui]"          # dev = tests, ui = the Streamlit dashboard
+python -m result_explainer build-db
+```
+
+### Option A: the dashboard (browser)
+
+```bash
+python -m result_explainer dashboard
+```
+
+This opens a Streamlit page at http://localhost:8501.
+
+| Tab | What you see |
+|-----|--------------|
+| **Explain a question** | Pick a question in the sidebar to see its result table, then the explanation. Every number carries a citation chip (hover it to see the cited value) and a badge shows whether the answer was grounded, a fallback, the template or an empty result. A table lists the cited facts. **Show SQL** and **Show all facts** reveal the query and every citable value |
+| **How it works** | The pipeline diagram, what the validator rejects, which model does what and why, and the known limitations |
+| **Dataset** | Row counts, a diagram of the tables, metric definitions and a preview of any table |
+| **Validation check** | Every approved question run and checked in one table |
+
+In the sidebar, the **Explainer** setting switches between the language model, the template and
+**Faulty (failure demo)**. Faulty deliberately invents numbers, so you can watch them get
+rejected. With a key set, the model only runs when you click **Explain with the language
+model**.
+
+### Option B: the command line (terminal)
+
+```bash
+python -m result_explainer list                          # the ten approved questions
+python -m result_explainer ask q03                       # run one and explain the result
+python -m result_explainer ask q05 --show-sql --show-facts
+python -m result_explainer ask q03 --explainer faulty    # failure demo: invented numbers rejected
+python -m result_explainer ask q10                       # edge case: empty result
+python -m result_explainer check                         # validate every approved question
+pytest                                                   # the test suite, offline
+```
+
+Example output:
+
 ```text
 $ python -m result_explainer ask q03
 q03 | Revenue and average order value by region
@@ -31,40 +100,6 @@ Cited facts
   ...
 ```
 
-## The problem
-
-Ask a language model to summarise a table and it will often round, extrapolate or invent figures
-that sound right but were never in the data. For analytics that is worse than no summary at all.
-
-This project keeps the model on a short leash:
-
-- **SQL does all the math.** Growth rates, shares and averages are computed in the query. The
-  model only describes values it is given.
-- **Only approved questions run.** Ten curated SQL questions over a synthetic dataset. The model
-  never writes SQL, and the database is opened read-only.
-- **Every number is verified.** A grounding validator rejects any explanation that contains a
-  figure missing from the result, or cites a metric that doesn't hold that figure.
-- **Safe fallback.** If the model can't produce a grounded explanation in two attempts, a
-  deterministic template explanation is shown instead, clearly marked.
-
-## Quick start
-
-Requires Python 3.10+. **No API key is needed**: without model settings the deterministic
-template explainer is used, and every test runs offline.
-
-```bash
-git clone https://github.com/AadityaU/result-explainer.git
-cd result-explainer
-python -m venv .venv
-.venv\Scripts\activate              # macOS/Linux: source .venv/bin/activate
-pip install -e ".[dev,ui]"          # ui = the optional Streamlit dashboard
-python -m result_explainer build-db
-python -m result_explainer check
-python -m result_explainer ask q03
-python -m result_explainer dashboard
-pytest
-```
-
 ## Commands
 
 | Command | What it does |
@@ -79,17 +114,6 @@ pytest
 
 `--explainer auto` (the default) uses the language model when `LLM_API_KEY` is set, otherwise
 the template.
-
-## Dashboard
-
-`python -m result_explainer dashboard` opens a Streamlit page over the same pipeline as the CLI:
-
-- pick an approved question and see its result table (and, optionally, its SQL and every fact);
-- read the explanation with each citation shown as a chip whose tooltip is the cited value,
-  a status badge (grounded, fallback, template, empty), and a table of the cited facts;
-- switch the explainer to **Faulty (failure demo)** to watch invented numbers get rejected, with
-  each rejected attempt and its issues listed;
-- open **Validation check** to see every approved question pass.
 
 ## Using a language model
 
@@ -109,6 +133,26 @@ local instead, point `LLM_BASE_URL` at Ollama and set `LLM_DRAFT_MODEL` / `LLM_R
 
 A missing key is reported as an error. An unreachable model or an answer that fails both
 attempts falls back to the template summary, and the output shows why.
+
+## Deploy on Render
+
+The repo includes a Render Blueprint ([`render.yaml`](render.yaml)) that runs the dashboard as a
+free web service:
+
+1. Push the repo to GitHub, then in Render choose **New > Blueprint** and connect it.
+2. Render reads `render.yaml`. It installs the project, builds the database, starts Streamlit on
+   Render's port and checks `/_stcore/health`. Python 3.13 comes from `.python-version`.
+3. When asked for `LLM_API_KEY`, paste an OpenRouter key, or leave it empty to run with the
+   template only.
+
+**Before sharing the link:** a public dashboard spends the key owner's credit. The dashboard
+only calls the model when a visitor clicks **Explain with the language model**, and each visitor
+session is capped at 20 model explanations. A reload starts a new session, though, so also set a
+**credit limit on the OpenRouter key**, and use a key made just for the deployment.
+
+On the free plan the service sleeps after 15 minutes without traffic and takes about a minute to
+wake on the next visit. The database is rebuilt from the committed CSVs on every deploy, so
+nothing is lost when the instance restarts.
 
 ## Architecture
 
@@ -347,7 +391,7 @@ the offline tests had missed:
 ## Tests
 
 ```bash
-pytest          # 140 tests, no network needed
+pytest          # 144 tests, no network needed
 python -m result_explainer check
 ```
 
@@ -363,7 +407,7 @@ python -m result_explainer check
 | `test_pipeline.py` | Draft then retry model with feedback, fallback, error fall-through, empty results skip the model |
 | `test_evaluate.py` | Grounded-rate summary, report contents and the evaluated setups |
 | `test_cli.py` | Every command and error path |
-| `test_dashboard.py` | The dashboard renders template, faulty and empty-result views (Streamlit app tester) |
+| `test_dashboard.py` | Every tab renders; the model waits for a click and stops at the session cap; faulty and empty-result views (Streamlit app tester) |
 
 CI runs `build-db`, `check` and `pytest` from a clean checkout on Python 3.10 and 3.13.
 
@@ -389,4 +433,6 @@ tests/                          pytest suite
 docs/design-note.md             design and decision note
 docs/model-evaluation.md        evaluation report from real model runs
 docs/demo-script.md             demo video script
+render.yaml  .python-version    Render deployment
+.streamlit/config.toml          dashboard server settings
 ```

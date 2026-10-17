@@ -25,10 +25,13 @@ from result_explainer.questions import QuestionError, load_questions, run_questi
 from result_explainer.validator import CITATION, validate
 
 MODES = {
-    "Auto": "The language model when an API key is set, otherwise the template.",
+    "Language model": "Explained by the model when an API key is set, otherwise by the template.",
     "Template": "Deterministic summary. No model is called.",
     "Faulty (failure demo)": "A deliberately broken explainer that invents numbers, to show the guard.",
 }
+# A public deployment spends the owner's API credit, so the model only runs on request and
+# each visitor session gets a limited number of model explanations.
+MODEL_CALLS_PER_SESSION = 20
 STATUS = {
     "grounded": ("#1a7f37", "Grounded", "Every number was matched to a cited fact from the result."),
     "fallback": ("#b35900", "Fallback", "The model's answers were rejected, so the template summary is shown."),
@@ -58,8 +61,12 @@ def load_facts(question_id: str) -> FactTable:
     return build_facts(question, run_question(question, DEFAULT_DB))
 
 
+def uses_model(mode: str) -> bool:
+    return mode == "Language model" and llm_configured()
+
+
 def explainers_for(mode: str) -> list[Explainer]:
-    if mode == "Template" or (mode == "Auto" and not llm_configured()):
+    if mode == "Template" or (mode == "Language model" and not llm_configured()):
         return [TemplateExplainer()]
     if mode.startswith("Faulty"):
         return with_retry(FaultyExplainer())
@@ -100,7 +107,28 @@ def result_rows(facts: FactTable) -> list[dict[str, str]]:
     ]
 
 
+def model_call_allowed(question_id: str, mode: str) -> bool:
+    """Free explainers run straight away; the model runs only when asked, within the cap."""
+    cached = (question_id, mode) in st.session_state.get("explanations", {})
+    if not uses_model(mode) or cached:
+        return True
+    used = st.session_state.get("model_calls", 0)
+    if used >= MODEL_CALLS_PER_SESSION:
+        st.warning(
+            f"This session has used its {MODEL_CALLS_PER_SESSION} model explanations. "
+            "The Template and Faulty explainers still work."
+        )
+        return False
+    st.caption("The model is only called when you ask, so browsing the questions costs nothing.")
+    if not st.button("Explain with the language model", type="primary", key=f"ask_{question_id}"):
+        return False
+    st.session_state["model_calls"] = used + 1
+    return True
+
+
 def show_explanation(question_id: str, mode: str) -> None:
+    if not model_call_allowed(question_id, mode):
+        return
     with st.spinner("Explaining..."):
         explanation, seconds = explain(question_id, mode)
     colour, label, meaning = STATUS[explanation.status]
@@ -145,7 +173,7 @@ def show_explanation(question_id: str, mode: str) -> None:
                 issues = "".join(f"<li><code>{issue.kind}</code>: {safe(issue.detail)}</li>" for issue in attempt.issues)
                 st.markdown(f"<ul>{issues}</ul>", unsafe_allow_html=True)
 
-    if mode != "Template" and st.button("Ask again", help="Discard the cached answer and explain again"):
+    if uses_model(mode) and st.button("Ask again", help="Discard this answer and ask the model again"):
         st.session_state["explanations"].pop((question_id, mode), None)
         st.rerun()
 
@@ -219,7 +247,10 @@ def main() -> None:
             st.caption(f"Draft model: `{settings.draft_model}`")
             st.caption(f"Retry model (only if a draft is rejected): `{settings.retry_model}`")
         else:
-            st.info("No LLM_API_KEY found, so Auto uses the template. Add your key to .env to use the model.")
+            st.info(
+                "No LLM_API_KEY is set, so the template explains instead of the model. "
+                "Add a key to .env (or the host's environment) to use the model."
+            )
 
     explain_tab, checks_tab = st.tabs(["Explain a question", "Validation check"])
     with explain_tab:

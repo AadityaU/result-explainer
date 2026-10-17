@@ -216,7 +216,7 @@ def show_explanation(question_id: str, mode: str) -> None:
                 if ref in facts.facts
             ],
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
 
     rejected = [attempt for attempt in explanation.attempts if attempt.issues]
@@ -248,13 +248,13 @@ def show_question_page(questions: dict, question_id: str, mode: str, show_sql: b
     if facts.is_empty:
         st.info("The query returned no rows.")
     else:
-        st.dataframe(result_rows(facts), hide_index=True, use_container_width=True)
+        st.dataframe(result_rows(facts), hide_index=True, width="stretch")
     if show_facts:
         with st.expander(f"All {len(facts.facts)} citable facts"):
             st.dataframe(
                 [{"reference": f.ref, "value": f.display} for f in facts.facts.values()],
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
             )
 
     st.markdown("**Explanation**")
@@ -335,7 +335,7 @@ def show_how_it_works_page() -> None:
     st.markdown("#### What the validator rejects")
     st.dataframe(
         [{"issue": kind, "meaning": meaning} for kind, meaning in ISSUE_RULES],
-        hide_index=True, use_container_width=True,
+        hide_index=True, width="stretch",
     )
 
     st.markdown("#### Which model does what")
@@ -420,7 +420,7 @@ def show_dataset_page() -> None:
     st.markdown(METRIC_DEFINITIONS)
     st.markdown("#### Preview a table")
     table = st.selectbox("Table", TABLES, key="preview_table", label_visibility="collapsed")
-    st.dataframe(preview_rows(table), hide_index=True, use_container_width=True)
+    st.dataframe(preview_rows(table), hide_index=True, width="stretch")
     st.caption("The first 20 rows, read through the same read-only connection the questions use.")
 
 
@@ -439,7 +439,7 @@ def show_checks_page(questions: dict) -> None:
                          "check": "ok" if not issues else "; ".join(issues)})
         except QuestionError as error:
             rows.append({"id": question.id, "question": question.title, "rows": None, "check": str(error)})
-    st.dataframe(rows, hide_index=True, use_container_width=True)
+    st.dataframe(rows, hide_index=True, width="stretch")
     passed = sum(row["check"] == "ok" for row in rows)
     st.caption(f"{passed} of {len(rows)} questions pass.")
 

@@ -8,10 +8,16 @@ from __future__ import annotations
 
 import html
 import re
+import sys
 import time
+from pathlib import Path
 
 import streamlit as st
 from dotenv import load_dotenv
+
+# Hosts such as Streamlit Community Cloud run this file directly without installing the
+# package, so make src/ importable. With an editable install this is the same path.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from result_explainer.db import build_database, connect_read_only
 from result_explainer.explainers.base import Explainer
@@ -23,9 +29,9 @@ from result_explainer.explainers.llm import (
     llm_configured,
     routed_explainers,
 )
-from result_explainer.generate import TABLES
 from result_explainer.explainers.template import TemplateExplainer
 from result_explainer.facts import FactTable, build_facts
+from result_explainer.generate import TABLES
 from result_explainer.paths import DEFAULT_DB, ROOT
 from result_explainer.pipeline import Explanation, explain_facts, with_retry
 from result_explainer.questions import QuestionError, load_questions, run_question

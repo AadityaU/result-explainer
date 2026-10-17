@@ -1,0 +1,7 @@
+# For Streamlit Community Cloud, which installs from this file and runs
+# src/result_explainer/dashboard.py directly. Local development uses pyproject.toml:
+#   pip install -e ".[dev,ui]"
+# Keep these in step with the dependencies there.
+httpx>=0.27
+python-dotenv>=1.0
+streamlit>=1.51
